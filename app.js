@@ -298,7 +298,6 @@ gameSchema.methods._evaluateVote = function (cb) {
             
 			if (round.failedVoteCount === 5) {
 				this.phase = PHASE.Final;
-				this.currentRound = -1;
 				console.log('Game over');
 			}
 			else {
@@ -357,7 +356,6 @@ gameSchema.methods._evaluateMission = function (cb) {
 		}
 		if (successfulMissions === 3 || failedMissions === 3) {
 			this.phase = PHASE.Final;
-			this.currentRound = -1;
 			console.log('Game over.');
 		}
 		else {
