@@ -102,7 +102,6 @@ var gameSchema = new Schema({
 gameSchema.pre('save', function (next) {
     if (this.isNew) {
         if (this.isMultiDevice) {
-            console.log(this.players);
             if (this.players && this.players.length) {
                 next(new Error('Cannot set players for multi-device'));
                 return;
@@ -182,16 +181,13 @@ gameSchema.methods.initialize = function () {
     var mafiaCount = gameData[this.players.length].mafiaCount;
 
     // assign affiliation
-    console.log(this.players);
     shuffle(this.players);
-    console.log(this.players);
     for (var i = 0; i < this.players.length; i++) {
         this.players[i].affiliation = i < mafiaCount ? AFFILIATION.Mafia : AFFILIATION.Townsperson;
     }
 
     // set order
     shuffle(this.players);
-    console.log(this.players);
     
     this.leaderIndex = 0;
     this.currentRound = 0;
@@ -737,15 +733,9 @@ var PHASE = {
 
 // Shuffle an array
 function shuffle (myArray) {
-    var i = myArray.length;
-    if (i === 0 ) return false;
-    while (--i) {
-        var j = Math.floor(Math.random() * (i + 1));
-        var tempi = myArray[i];
-        var tempj = myArray[j];
-        myArray[i] = tempj;
-        myArray[j] = tempi;
-    }
+    myArray.sort(function () {
+        return Math.random() - 0.5;
+    });
 }
 
 function beginMethod (methodName, args) {
