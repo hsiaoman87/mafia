@@ -1,0 +1,23 @@
+extends layout
+
+block scripts
+    script(src='/socket.io/socket.io.js')
+    script(src='/scripts/start.js')
+
+block content
+    h1= title
+    h2 Multiple Devices
+    h3 Create
+    button(data-bind="click: startSingle") Start
+    h3 Join
+    input(data-bind="value: joinGameId", placeholder="Enter game code")
+    button(data-bind="click: join") Go
+    h3 Rejoin
+    input(data-bind="value: rejoinGameId", placeholder="Enter game code")
+    input(data-bind="value: rejoinUserId", placeholder="Enter user id")
+    button(data-bind="click: rejoin") Go
+    h2 Single Device
+    div(data-bind="foreach: players")
+        input(data-bind="value: name, event: { keypress: $parent.onKeyPress }, hasfocus: hasFocus")
+    button(data-bind="click: addPlayer") Add player
+    button(data-bind="click: startMulti") Start

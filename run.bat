@@ -1,0 +1,1 @@
+supervisor -w .,routes app.js

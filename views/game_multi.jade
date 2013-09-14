@@ -1,0 +1,66 @@
+extends layout
+
+block scripts
+    script(src='/scripts/game_multi.js')
+    script.
+        var data = !{JSON.stringify(data)};
+        var game = data.game;
+    
+block content
+    h1= title
+    h2 Current Player
+    div#currentPlayer
+        div(data-bind="text: id")
+        input#player-name(data-bind="value: name", placeholder="Enter player name")
+        input(type="checkbox", data-bind="checked: isReady")
+        button(data-bind="click: save") OK
+    div#game
+        h2 Game
+        table
+            tr
+                td Current Round
+                td(data-bind="text: currentRound")
+            tr
+                td Leader Index
+                td(data-bind="text: leaderIndex")
+            tr
+                td Phase
+                td(data-bind="text: phase")
+        h2 Players
+        button(data-bind="click: unimpersonate") unimpersonate
+        table
+            tr
+                th Impersonate
+                th Index
+                th Id
+                th Name
+                th isReady
+                th nominee
+                th Vote
+                th Mission
+            <!-- ko foreach: players -->
+            tr
+                td
+                    button(data-bind="click: impersonate") impersonate
+                td(data-bind="text: playerIndex")
+                td(data-bind="text: id")
+                td
+                    input(data-bind="value: name", placeholder="Enter player name")
+                td
+                    input(type="checkbox", data-bind="checked: isReady")
+                    button(data-bind="click: save") OK
+                td(data-bind="text: nominee")
+                td
+                    button(data-bind="click: vote.bind($data, true)") Approve
+                    button(data-bind="click: vote.bind($data, false)") Reject
+                td
+                    button(data-bind="click: mission.bind($data, true)") Succeed
+                    button(data-bind="click: mission.bind($data, false)") Fail
+            <!-- /ko -->
+        h2 Nominate
+        <!-- ko foreach: nominees -->
+        div
+            input(type="checkbox", data-bind="checked: isSelected")
+            span(data-bind="text: name")
+        <!-- /ko -->
+        button(data-bind="click: submitNominees") OK
