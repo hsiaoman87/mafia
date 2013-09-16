@@ -75,6 +75,7 @@ var gameSchema = new Schema({
 	phase: String,
 	rounds: [{
 		history: [{
+            leaderIndex: Number,
             iterations: [{
                 vote: Boolean,
                 teamMember: Boolean
@@ -256,6 +257,7 @@ gameSchema.methods._evaluateVote = function (cb) {
 	var yesVotes = 0;
 	var noVotes = 0;
 	var historyEntry = {
+        leaderIndex: this.leaderIndex,
         iterations: []
     };
     

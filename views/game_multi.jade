@@ -64,3 +64,47 @@ block content
             span(data-bind="text: name")
         <!-- /ko -->
         button(data-bind="click: submitNominees") OK
+        h2 Rounds
+        <!-- ko foreach: rounds -->
+        h3
+            span Round 
+            span(data-bind="text: $index() + 1")
+        table
+            tr
+                td Success
+                td(data-bind="text: result")
+            tr
+                td Failed nominations
+                td(data-bind="text: failedVoteCount")
+            tr
+                td Mission failures
+                td(data-bind="text: failCount")
+        <!-- ko foreach: history -->
+        h4(data-bind="text: 'Team ' + ($index() + 1)")
+        table
+            tr
+                td Leader
+                td(data-bind="text: leader().name")
+            tr
+                td Approve
+                td(data-bind="text: voteCounts().approveCount")
+            tr
+                td Reject
+                td(data-bind="text: voteCounts().rejectCount")
+            tr
+                td Team
+                td
+                    <!-- ko foreach: teamMembers -->
+                    div(data-bind="text: name")
+                    <!-- /ko -->
+            tr
+                td Votes
+                td
+                    <!-- ko foreach: playerIterations -->
+                    div
+                        span(data-bind="text: name")
+                        span : 
+                        span(data-bind="text: voteDecision")
+                    <!-- /ko -->
+        <!-- /ko -->
+        <!-- /ko -->

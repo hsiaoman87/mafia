@@ -5,8 +5,13 @@ $(function () {
     
     $(document).keydown(function (e) {
         if (e.which === 27) {
-            debugger;
             gameModel.unimpersonate();
+        }
+        else if (e.shiftKey) {
+            var playerIndex = e.which - 48;
+            if (gameModel.players[playerIndex]) {
+                gameModel.players[playerIndex].impersonate();
+            }
         }
     });
     $('#player-name').focus();
@@ -24,7 +29,7 @@ $(function () {
             return new Player(element, index);
         });
         
-        self.nominees = $.map(self.players, function (element, index) {
+        self.nominees = $.map(self.players, function (element) {
             return $.extend({
                 isSelected: false
             }, element);
@@ -56,11 +61,68 @@ $(function () {
             });
         };
         
+        self.rounds = $.map(self.rounds, function (round) {
+            return new Round(round, self);
+        });
+        
         self.unimpersonate = function () {
             $.get('/impersonate/' + self.id, function() {
                 location.reload();
             });
         }
+    }
+    
+    function Round(existing, game) {
+        var self = this;
+        self.result = '';
+        self.failCount = '';
+        $.extend(this, existing);
+        
+        self.history = $.map(self.history, function (history) {
+            return new HistoryEntry(history, game);
+        });
+    }
+    
+    function HistoryEntry(existing, game) {
+        var self = this;
+        $.extend(this, existing);
+        
+        self.playerIterations = ko.computed(function () {
+            return $.map(self.iterations, function (iteration, index) {
+                return $.extend({
+                    voteDecision: iteration.vote,
+                    isTeamMember: iteration.teamMember
+                }, game.players[index]);
+            });
+        });
+        
+        self.voteCounts = ko.computed(function () {
+            var approveCount = 0;
+            var rejectCount = 0;
+            $.each(self.iterations, function (index, iteration) {
+                if (iteration.vote) {
+                    approveCount++;
+                }
+                else {
+                    rejectCount++;
+                }
+            });
+            
+            return {
+                approveCount: approveCount,
+                rejectCount: rejectCount
+            };
+        });
+        
+        self.leader = ko.computed(function () {
+            return game.players[self.leaderIndex];
+        });
+        
+        self.teamMembers = ko.computed(function () {
+            return $.grep(self.playerIterations(), function (player, index) {
+                return player.isTeamMember;
+            });
+        });
     }
     
     function Player(existing, playerIndex) {
