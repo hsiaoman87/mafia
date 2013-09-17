@@ -85,8 +85,7 @@ var gameSchema = new Schema({
         failCount: Number,
         result: Boolean
 	}],
-	players: [playerSchema],
-    isInitialized: Boolean
+	players: [playerSchema]
 }, {
     toJSON: {
         transform: function (doc, ret, options) {
@@ -143,10 +142,7 @@ gameSchema.virtual('isReady').get(function () {
 gameSchema.methods.addPlayer = function (player, cb) {
     beginMethod('addPlayer(player, cb)', arguments);
     
-    if (this.isInitialized) {
-        cb(new Error('Cannot add player because game has already started'));
-    }
-	else {
+	if (this.phase === PHASE.Init) {
         this.players.push(player);
         
         if (this.isReady) {
@@ -154,12 +150,15 @@ gameSchema.methods.addPlayer = function (player, cb) {
         }
         this.save(cb);
     }
+    else {
+        cb(new Error('Cannot add player because game has already started'));
+    }
 }
 
 gameSchema.methods.updatePlayer = function (userId, newPlayer, cb) {
     beginMethod('updatePlayer(userId, newPlayer, cb)', arguments);
     
-    if (this.isInitialized) {
+    if (this.phase !== PHASE.Init) {
         cb(new Error('Cannot update player because game has already started'));
     }
     else if (!this.players[userId]) {
@@ -193,7 +192,6 @@ gameSchema.methods.initialize = function () {
     this.leaderIndex = 0;
     this.currentRound = 0;
     this.phase = PHASE.Nominate;
-    this.isInitialized = true;
 }
 
 gameSchema.methods.nominate = function (ids, cb) {
@@ -490,6 +488,7 @@ app.get('/:id/_api/rounds/:roundId?', function (req, res, next) {
 // Create new game
 app.post('/', function (req, res, next) {
     Game.create({
+        phase: PHASE.Init,
         isMultiDevice: req.body.isMultiDevice,
         players: req.body.players,
     }, function (err, newGame) {
@@ -725,6 +724,7 @@ var AFFILIATION = {
 }
 
 var PHASE = {
+    Init: 'init',
     Nominate: 'nominate',
     Vote: 'vote',
     Mission: 'mission',

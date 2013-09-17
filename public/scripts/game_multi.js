@@ -16,6 +16,39 @@ $(function () {
     });
     $('#player-name').focus();
     
+    var gameData = {
+        5: {
+            mafiaCount: 2,
+            teamCount: [2, 3, 2, 3, 3],
+            failuresNeeded: [1, 1, 1, 1, 1]
+        },
+        6: {
+            mafiaCount: 2,
+            teamCount: [2, 3, 4, 3, 4],
+            failuresNeeded: [1, 1, 1, 1, 1]
+        },
+        7: {
+            mafiaCount: 3,
+            teamCount: [2, 3, 3, 4, 4],
+            failuresNeeded: [1, 1, 1, 2, 1]
+        },
+        8: {
+            mafiaCount: 3,
+            teamCount: [3, 4, 4, 5, 5],
+            failuresNeeded: [1, 1, 1, 2, 1]
+        },
+        9: {
+            mafiaCount: 3,
+            teamCount: [3, 4, 4, 5, 5],
+            failuresNeeded: [1, 1, 1, 2, 1]
+        },
+        10: {
+            mafiaCount: 4,
+            teamCount: [3, 4, 4, 5, 5],
+            failuresNeeded: [1, 1, 1, 2, 1]
+        }
+    }
+    
     function Game(existing, currentPlayerIndex) {
         var self = this;
         self.currentRound = '';
@@ -24,6 +57,10 @@ $(function () {
         $.extend(this, existing);
         
         self.currentPlayerIndex = currentPlayerIndex;
+        
+        self.teamSize = ko.computed(function () {
+            return gameData[self.players.length].teamCount[self.currentRound];
+        });
         
         self.players = $.map(self.players, function (element, index) {
             return new Player(element, index);

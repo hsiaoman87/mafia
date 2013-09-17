@@ -19,13 +19,16 @@ block content
         table
             tr
                 td Current Round
-                td(data-bind="text: currentRound")
+                td(data-bind="text: currentRound + 1")
             tr
                 td Leader Index
                 td(data-bind="text: leaderIndex")
             tr
                 td Phase
                 td(data-bind="text: phase")
+            tr
+                td Team Size
+                td(data-bind="text: teamSize")
         h2 Players
         button(data-bind="click: unimpersonate") unimpersonate
         table
