@@ -9,42 +9,44 @@ block scripts
 block content
     h1= title
     div#game
-        h2 Current Player
-        <!-- ko with: currentPlayer -->
-        table
-            tr
-                td Name
-                td
-                    div(data-bind="text: name, visible: $parent.phase() !== 'init'")
-                    input#player-name(data-bind="value: name, visible: $parent.phase() === 'init'", placeholder="Enter player name")
-            tr(data-bind="visible: $parent.phase() === 'init'")
-                td isReady
-                td
-                    input(type="checkbox", data-bind="checked: isReady")
-                    button(data-bind="click: save") OK
-            tr(data-bind="visible: $parent.debug")
-                td Id
-                td(data-bind="text: id")
-            tr(data-bind="visible: $parent.phase() === 'nominate' && $parent.leaderIndex() === $parent.currentPlayerIndex()")
-                td Nominate
-                td
-                    <!-- ko foreach: $parent.players -->
-                    div
-                        input(type="checkbox", data-bind="checked: isSelected")
-                        span(data-bind="text: name")
-                    <!-- /ko -->
-                    button(data-bind="click: $parent.submitNominees") OK
-            tr(data-bind="visible: $parent.phase() === 'vote'")
-                td Vote
-                td
-                    button(data-bind="click: vote.bind($data, true)") Approve
-                    button(data-bind="click: vote.bind($data, false)") Reject
-            tr(data-bind="visible: $parent.phase() === 'mission'")
-                td Mission
-                td
-                    button(data-bind="click: mission.bind($data, true)") Succeed
-                    button(data-bind="click: mission.bind($data, false)") Fail
-        <!-- /ko -->
+        div(data-bind="visible: !isNaN(currentPlayerIndex())")
+            h2 Current Player
+            <!-- ko with: currentPlayer -->
+            table
+                tr
+                    td Name
+                    td(data-bind="visible: $parent.phase() !== 'init'")
+                        div(data-bind="text: name")
+                    td(data-bind="visible: $parent.phase() === 'init'")
+                        input#player-name(data-bind="value: name", placeholder="Enter player name")
+                        button(data-bind="click: save") OK
+                tr(data-bind="visible: $parent.phase() === 'init'")
+                    td Ready?
+                    td
+                        input(type="checkbox", data-bind="checked: isReady")
+                tr(data-bind="visible: $parent.debug")
+                    td Id
+                    td(data-bind="text: id")
+                tr(data-bind="visible: $parent.phase() === 'nominate' && $parent.leaderIndex() === $parent.currentPlayerIndex()")
+                    td Nominate
+                        div(data-bind="text: 'Team Size: ' + $parent.teamSize()")
+                        <!-- ko foreach: $parent.players -->
+                        div
+                            input(type="checkbox", data-bind="checked: isSelected")
+                            span(data-bind="text: name")
+                        <!-- /ko -->
+                        button(data-bind="click: $parent.submitNominees") OK
+                tr(data-bind="visible: $parent.phase() === 'vote'")
+                    td Vote
+                    td
+                        button(data-bind="click: vote.bind($data, true)") Approve
+                        button(data-bind="click: vote.bind($data, false)") Reject
+                tr(data-bind="visible: $parent.phase() === 'mission' && nominee()")
+                    td Mission
+                    td
+                        button(data-bind="click: mission.bind($data, true)") Succeed
+                        button(data-bind="click: mission.bind($data, false)") Fail
+            <!-- /ko -->
         div(data-bind="visible: phase() !== 'init'")
             h2 Game
             table
@@ -66,7 +68,7 @@ block content
         div(data-bind="visible: phase() !== 'final'")
             h2 Players
             <!-- ko foreach: players -->
-            div(data-bind="text: name() + ($index() === $parent.leaderIndex() ? ' *' : '')")
+            div(data-bind="text: name() + ($index() === $parent.leaderIndex() ? ' *' : '') + ($parent.phase() === 'init' && isReady() ? ' (ready)' : '')")
             <!-- /ko -->
         div(data-bind="visible: debug")
             h2 Impersonate
@@ -96,46 +98,47 @@ block content
                         button(data-bind="click: mission.bind($data, true)") Succeed
                         button(data-bind="click: mission.bind($data, false)") Fail
                 <!-- /ko -->
-        h2 History
-        <!-- ko foreach: rounds -->
-        h3
-            span(data-bind="text: 'Round ' + ($index() + 1)")
-        table
-            tr
-                td Success
-                td(data-bind="text: result")
-            tr
-                td Failed nominations
-                td(data-bind="text: failedVoteCount")
-            tr
-                td Mission failures
-                td(data-bind="text: failCount")
-        <!-- ko foreach: history -->
-        h4(data-bind="text: 'Team ' + ($index() + 1)")
-        table
-            tr
-                td Leader
-                td(data-bind="text: leader().name")
-            tr
-                td Approve
-                td(data-bind="text: voteCounts().approveCount")
-            tr
-                td Reject
-                td(data-bind="text: voteCounts().rejectCount")
-            tr
-                td Team
-                td
-                    <!-- ko foreach: teamMembers -->
-                    div(data-bind="text: name")
-                    <!-- /ko -->
-            tr
-                td Votes
-                td
-                    <!-- ko foreach: playerIterations -->
-                    div
-                        span(data-bind="text: name")
-                        span : 
-                        span(data-bind="text: voteDecision")
-                    <!-- /ko -->
-        <!-- /ko -->
-        <!-- /ko -->
+        div(data-bind="visible: phase () !== 'init'")
+            h2 History
+            <!-- ko foreach: rounds -->
+            h3
+                span(data-bind="text: 'Round ' + ($index() + 1)")
+            table
+                tr
+                    td Success
+                    td(data-bind="text: result")
+                tr
+                    td Failed nominations
+                    td(data-bind="text: failedVoteCount")
+                tr
+                    td Mission failures
+                    td(data-bind="text: failCount")
+            <!-- ko foreach: history -->
+            h4(data-bind="text: 'Team ' + ($index() + 1)")
+            table
+                tr
+                    td Leader
+                    td(data-bind="text: leader().name")
+                tr
+                    td Approve
+                    td(data-bind="text: voteCounts().approveCount")
+                tr
+                    td Reject
+                    td(data-bind="text: voteCounts().rejectCount")
+                tr
+                    td Team
+                    td
+                        <!-- ko foreach: teamMembers -->
+                        div(data-bind="text: name")
+                        <!-- /ko -->
+                tr
+                    td Votes
+                    td
+                        <!-- ko foreach: playerIterations -->
+                        div
+                            span(data-bind="text: name")
+                            span : 
+                            span(data-bind="text: voteDecision")
+                        <!-- /ko -->
+            <!-- /ko -->
+            <!-- /ko -->

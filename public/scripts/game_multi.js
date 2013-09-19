@@ -64,7 +64,7 @@ $(function () {
     
     function Game(data) {
         var self = this;
-        self.debug = document.cookie.indexOf('debugmafia=1') !== -1;
+        self.debug = document.cookie.indexOf('debug-mafia=1') !== -1;
         self.leaderIndex = ko.observable();
         self.currentRound = ko.observable();
         ko.mapping.fromJS(data.game, {
@@ -205,6 +205,10 @@ $(function () {
         self.id = ko.observable();
         ko.mapping.fromJS(data, {
         }, this);
+        
+        self.isReady.subscribe(function () {
+            self.save();
+        });
         
         self.impersonate = function () {
             $.get('/impersonate/' + gameModel.id + '/' + self.id(), function (data) {
