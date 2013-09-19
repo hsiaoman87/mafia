@@ -505,23 +505,19 @@ app.post('/', function (req, res, next) {
 app.get('/impersonate/:id/:userId?', function (req, res, next) {
     if (req.game.isMultiDevice) {
         if (req.params.userId) {
-            var foundUser = false;
             for (var i = 0; i < req.game.players.length; i++) {
                 if (req.game.players[i].id === req.params.userId) {
                     res.cookie('userId', req.game.players[i]._id, { path: '/' + req.game.id });
-                    foundUser = true;
-                    break;
+                    res.send({ currentPlayerIndex: i });
+                    return;
                 }
             }
-            if (!foundUser) {
-                next(new Error('User not found'));
-                return;
-            }
+            next(new Error('User not found'));
         }
         else {
             res.clearCookie('userId', { path: '/' + req.params.id });
+            res.send();
         }
-        res.send(req.game);
     }
     else {
         next(new Error('Cannot join single-device game'));

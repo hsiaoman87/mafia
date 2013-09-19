@@ -9,8 +9,8 @@ $(function () {
         }
         else if (e.shiftKey) {
             var playerIndex = e.which - 48;
-            if (gameModel.players[playerIndex]) {
-                gameModel.players[playerIndex].impersonate();
+            if (gameModel.players()[playerIndex]) {
+                gameModel.players()[playerIndex].impersonate();
             }
         }
     });
@@ -49,43 +49,58 @@ $(function () {
         }
     }
     
-    function Game(existing, currentPlayerIndex) {
+    function Game(data, currentPlayerIndex) {
         var self = this;
-        self.currentRound = '';
-        self.leaderIndex = '';
-        self.phase = '';
-        $.extend(this, existing);
+        self.leaderIndex = ko.observable();
+        self.currentRound = ko.observable();
+        ko.mapping.fromJS(data, {
+            copy: ['id'],
+            players: {
+                create: function (options) {
+                    return new Player(options.data);
+                }
+            },
+            rounds: {
+                create: function (options) {
+                    return new Round(options.data, self);
+                }
+            }
+        }, this);
         
-        self.currentPlayerIndex = currentPlayerIndex;
+        self.currentPlayerIndex = ko.observable(currentPlayerIndex);
+        
+        self.currentPlayer = ko.computed(function () {
+            if (isNaN(self.currentPlayerIndex())) {
+                return new Player();
+            }
+            else {
+                return self.players()[self.currentPlayerIndex()];
+            }
+        });
         
         self.teamSize = ko.computed(function () {
-            return gameData[self.players.length].teamCount[self.currentRound];
-        });
-        
-        self.players = $.map(self.players, function (element, index) {
-            return new Player(element, index);
-        });
-        
-        self.nominees = $.map(self.players, function (element) {
-            return $.extend({
-                isSelected: false
-            }, element);
+            if (gameData[self.players().length]) {
+                return gameData[self.players().length].teamCount[self.currentRound()];
+            }
+            else {
+                return null;
+            }
         });
         
         self.candidates = ko.computed(function () {
-            return $.grep(self.players, function (element, index) {
-                return element.nominee;
+            return $.grep(self.players(), function (element, index) {
+                return element.nominee();
             });
         });
         
         self.currentLeader = ko.computed(function () {
-            return self.players[self.leaderIndex];
+            return self.players()[self.leaderIndex()];
         });
         
         self.submitNominees = function () {
             var nomineeIds = [];
-            $.each(self.nominees, function (index, element) {
-                if (element.isSelected) {
+            $.each(self.players(), function (index, player) {
+                if (player.isSelected()) {
                     nomineeIds.push(index);
                 }
             });
@@ -94,13 +109,9 @@ $(function () {
                 ids: nomineeIds
             },
             function (game) {
-                location.href = '/' + game.id;
+                ko.mapping.fromJS(game, self);
             });
         };
-        
-        self.rounds = $.map(self.rounds, function (round) {
-            return new Round(round, self);
-        });
         
         self.unimpersonate = function () {
             $.get('/impersonate/' + self.id, function() {
@@ -109,34 +120,37 @@ $(function () {
         }
     }
     
-    function Round(existing, game) {
+    function Round(data, game) {
         var self = this;
-        self.result = '';
-        self.failCount = '';
-        $.extend(this, existing);
-        
-        self.history = $.map(self.history, function (history) {
-            return new HistoryEntry(history, game);
-        });
+        self.result = ko.observable();
+        self.failCount = ko.observable();
+        ko.mapping.fromJS(data, {
+            history: {
+                create: function (options) {
+                    return new HistoryEntry(options.data, game);
+                }
+            }
+        }, this);
     }
     
-    function HistoryEntry(existing, game) {
+    function HistoryEntry(data, game) {
         var self = this;
-        $.extend(this, existing);
+        ko.mapping.fromJS(data, {
+        }, this);
         
         self.playerIterations = ko.computed(function () {
-            return $.map(self.iterations, function (iteration, index) {
+            return $.map(self.iterations(), function (iteration, index) {
                 return $.extend({
                     voteDecision: iteration.vote,
                     isTeamMember: iteration.teamMember
-                }, game.players[index]);
+                }, game.players()[index]);
             });
         });
         
         self.voteCounts = ko.computed(function () {
             var approveCount = 0;
             var rejectCount = 0;
-            $.each(self.iterations, function (index, iteration) {
+            $.each(self.iterations(), function (index, iteration) {
                 if (iteration.vote) {
                     approveCount++;
                 }
@@ -152,87 +166,84 @@ $(function () {
         });
         
         self.leader = ko.computed(function () {
-            return game.players[self.leaderIndex];
+            return game.players()[self.leaderIndex()];
         });
         
         self.teamMembers = ko.computed(function () {
             return $.grep(self.playerIterations(), function (player, index) {
-                return player.isTeamMember;
+                return player.isTeamMember();
             });
         });
     }
     
-    function Player(existing, playerIndex) {
+    function Player(data) {
         var self = this;
         
-        self.playerIndex = playerIndex;
-        
-        self.name = '';
-        self.id = '';
-        self.isReady = false;
-        self.nominee = false;
+        self.isSelected = ko.observable(false);
+        self.nominee = ko.observable(false);
+        self.isReady = ko.observable(false);
+        self.name = ko.observable();
+        self.id = ko.observable();
+        ko.mapping.fromJS(data, {
+        }, this);
         
         self.impersonate = function () {
-            $.get('/impersonate/' + game.id + '/' + self.id, function() {
-                location.reload();
+            $.get('/impersonate/' + gameModel.id + '/' + self.id(), function (data) {
+                gameModel.currentPlayerIndex(data.currentPlayerIndex);
+                
+                if (gameModel.phase() === 'init') {
+                    $('#player-name').focus();
+                }
             });
         }
         
         self.vote = function (approve) {
-            $.post('/' + game.id + '/_api/' + self.playerIndex + '/vote', {
+            var playerIndex = gameModel.players.mappedIndexOf(self);
+            $.post('/' + gameModel.id + '/_api/' + playerIndex + '/vote', {
                 approve: approve
             },
             function (game) {
-                location.href = '/' + game.id;
+                ko.mapping.fromJS(game, gameModel);
             });
         };
         
         self.mission = function (succeed) {
-            $.post('/' + game.id + '/_api/' + self.playerIndex + '/mission', {
+            var playerIndex = gameModel.players.mappedIndexOf(self);
+            $.post('/' + gameModel.id + '/_api/' + playerIndex + '/mission', {
                 succeed: succeed
             },
             function (game) {
-                location.href = '/' + game.id;
+                ko.mapping.fromJS(game, gameModel);
             });
         };
         
-        if (existing) {
-            $.extend(this, existing);
-            
-            self.save = function () {
-                $.ajax('/' + game.id + '/_api/users/' + self.id, {
+        self.save = function () {
+            if (self.id()) {
+                $.ajax('/' + gameModel.id + '/_api/users/' + self.id(), {
                     data: {
                         name: self.name,
                         isReady: self.isReady
                     },
                     type: 'PATCH',
-                    success: function (game) {
-                        location.reload();
+                    success: function (player) {
+                        // TODO: update players in case game is ready
+                        ko.mapping.fromJS(player, self);
                     }
                 });
-            };
-        }
-        else {
-            self.save = function () {
-                $.post('/' + game.id + '/_api/users', {
+            }
+            else {
+                $.post('/' + gameModel.id + '/_api/users', {
                     name: self.name,
                     isReady: self.isReady
                 },
-                function (game) {
-                    location.reload();
+                function (player) {
+                    // TODO: add new player to list
+                    ko.mapping.fromJS(player, self);
                 });
-            };
-        }
+            }
+        };
     }
+    
     var gameModel = new Game(data.game, data.currentPlayerIndex);
     ko.applyBindings(gameModel, $('#game')[0]);
-    
-    var playerModel;
-    if (isNaN(data.currentPlayerIndex)) {
-        playerModel = new Player();
-    }
-    else {
-        playerModel = gameModel.players[data.currentPlayerIndex];
-    }
-    ko.applyBindings(playerModel, $('#currentPlayer')[0]);
 });
