@@ -126,6 +126,10 @@ gameSchema.pre('save', function (next) {
     next();
 });
 
+gameSchema.post('save', function (next) {
+    sendRefresh(this);
+});
+
 gameSchema.virtual('isReady').get(function () {
     if (this.players.length < 5) {
         return false;
@@ -434,7 +438,9 @@ app.get('/:id', function (req, res, next) {
             title: 'Play (multi-device)',
             data: {
                 game: req.game,
-                currentPlayerIndex: req.currentPlayerIndex
+                currentPlayerIndex: req.currentPlayerIndex,
+                socketIp: req.socket.address().address,
+                debug: req.query.debug
             }
         });
     }
@@ -443,7 +449,9 @@ app.get('/:id', function (req, res, next) {
             title: 'Play (single-device)',
             data: {
                 game: req.game,
-                currentPlayerIndex: req.currentPlayerIndex
+                currentPlayerIndex: req.currentPlayerIndex,
+                socketIp: req.socket.address().address,
+                debug: req.query.debug
             }
         });
     }
@@ -465,6 +473,7 @@ app.get('/:id/_api/users/:userId?', function (req, res, next) {
         res.send(req.game.players);
     }
     else if (req.game.players[req.params.userId]) {
+        // TODO: if self, send affiliation and possibly other teammates
         res.send(req.game.players[req.params.userId]);
     }
     else {
@@ -656,29 +665,10 @@ server.listen(app.get('port'), function(){
     console.log('Express server listening on port ' + app.get('port'));
 });
 
-function broadcast(socketName, message) {
-    for (var socketId in sockets) {
-        if (sockets.hasOwnProperty(socketId)) {
-            sockets[socketId].emit(socketName, message);
-        }
-    }
-}
-
-var sockets = {};
 
 io.sockets.on('connection', function (socket) {
-    sockets[socket.id] = socket;
-
-    socket.on('my other event', function (data) {
-        console.log(data);
-    });
     
-    socket.on('add user', function (user) {
-    });
-    
-    socket.on('disconnect', function () {
-        delete sockets[socket.id];
-    });
+    console.log('connected!');
 });
 
 var gameData = {
@@ -738,4 +728,9 @@ function beginMethod (methodName, args) {
     console.log('begin method: ' + methodName);
     console.log('params:');
     console.log(args);
+}
+
+function sendRefresh(game) {
+    beginMethod('sendRefresh', arguments);
+    io.sockets.emit('refresh', game);
 }

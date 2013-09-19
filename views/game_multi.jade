@@ -1,6 +1,7 @@
 extends layout
 
 block scripts
+    script(src='/socket.io/socket.io.js')
     script(src='/scripts/game_multi.js')
     script.
         var data = !{JSON.stringify(data)};
@@ -9,23 +10,22 @@ block content
     h1= title
     div#game
         h2 Current Player
-        
-        
         <!-- ko with: currentPlayer -->
         table
             tr
                 td Name
                 td
-                    input#player-name(data-bind="value: name", placeholder="Enter player name")
-            tr
+                    div(data-bind="text: name, visible: $parent.phase() !== 'init'")
+                    input#player-name(data-bind="value: name, visible: $parent.phase() === 'init'", placeholder="Enter player name")
+            tr(data-bind="visible: $parent.phase() === 'init'")
                 td isReady
                 td
                     input(type="checkbox", data-bind="checked: isReady")
                     button(data-bind="click: save") OK
-            tr
+            tr(data-bind="visible: $parent.debug")
                 td Id
                 td(data-bind="text: id")
-            tr(data-bind="visible: $parent.phase() === 'nominate'")
+            tr(data-bind="visible: $parent.phase() === 'nominate' && $parent.leaderIndex() === $parent.currentPlayerIndex()")
                 td Nominate
                 td
                     <!-- ko foreach: $parent.players -->
@@ -45,58 +45,61 @@ block content
                     button(data-bind="click: mission.bind($data, true)") Succeed
                     button(data-bind="click: mission.bind($data, false)") Fail
         <!-- /ko -->
-        h2 Game
-        table
-            tr
-                td Current Round
-                td(data-bind="text: currentRound() + 1")
-            tr
-                td Leader Index
-                td(data-bind="text: leaderIndex")
-            tr
-                td Phase
-                td(data-bind="text: phase")
-            tr
-                td Team Size
-                td(data-bind="text: teamSize")
-            tr
-                td Candidates
-                td
-                    <!-- ko foreach: candidates -->
-                    div(data-bind="text: name")
-                    <!-- /ko -->
-        h2 Players
-        button(data-bind="click: unimpersonate") unimpersonate
-        table
-            tr
-                th Impersonate
-                th Id
-                th Name
-                th isReady
-                th Vote
-                th Mission
+        div(data-bind="visible: phase() !== 'init'")
+            h2 Game
+            table
+                tr
+                    td Current Round
+                    td(data-bind="text: currentRound() + 1")
+                tr
+                    td Phase
+                    td(data-bind="text: phase")
+                tr
+                    td Team Size
+                    td(data-bind="text: teamSize")
+                tr
+                    td Candidates
+                    td
+                        <!-- ko foreach: candidates -->
+                        div(data-bind="text: name")
+                        <!-- /ko -->
+        div(data-bind="visible: phase() !== 'final'")
+            h2 Players
             <!-- ko foreach: players -->
-            tr
-                td
-                    button(data-bind="click: impersonate") impersonate
-                td(data-bind="text: id")
-                td
-                    input(data-bind="value: name", placeholder="Enter player name")
-                td
-                    input(type="checkbox", data-bind="checked: isReady")
-                    button(data-bind="click: save") OK
-                td
-                    button(data-bind="click: vote.bind($data, true)") Approve
-                    button(data-bind="click: vote.bind($data, false)") Reject
-                td
-                    button(data-bind="click: mission.bind($data, true)") Succeed
-                    button(data-bind="click: mission.bind($data, false)") Fail
+            div(data-bind="text: name() + ($index() === $parent.leaderIndex() ? ' *' : '')")
             <!-- /ko -->
-        h2 Rounds
+        div(data-bind="visible: debug")
+            h2 Impersonate
+            button(data-bind="click: unimpersonate") unimpersonate
+            table
+                tr
+                    th Impersonate
+                    th Id
+                    th Name
+                    th isReady
+                    th Vote
+                    th Mission
+                <!-- ko foreach: players -->
+                tr
+                    td
+                        button(data-bind="click: impersonate") impersonate
+                    td(data-bind="text: id")
+                    td
+                        input(data-bind="value: name", placeholder="Enter player name")
+                    td
+                        input(type="checkbox", data-bind="checked: isReady")
+                        button(data-bind="click: save") OK
+                    td
+                        button(data-bind="click: vote.bind($data, true)") Approve
+                        button(data-bind="click: vote.bind($data, false)") Reject
+                    td
+                        button(data-bind="click: mission.bind($data, true)") Succeed
+                        button(data-bind="click: mission.bind($data, false)") Fail
+                <!-- /ko -->
+        h2 History
         <!-- ko foreach: rounds -->
         h3
-            span Round 
-            span(data-bind="text: $index() + 1")
+            span(data-bind="text: 'Round ' + ($index() + 1)")
         table
             tr
                 td Success

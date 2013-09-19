@@ -48,12 +48,26 @@ $(function () {
             failuresNeeded: [1, 1, 1, 2, 1]
         }
     }
+
+    var AFFILIATION = {
+        Mafia: 0,
+        Townsperson: 1
+    }
+
+    var PHASE = {
+        Init: 'init',
+        Nominate: 'nominate',
+        Vote: 'vote',
+        Mission: 'mission',
+        Final: 'final'
+    }
     
-    function Game(data, currentPlayerIndex) {
+    function Game(data) {
         var self = this;
+        self.debug = document.cookie.indexOf('debugmafia=1') !== -1;
         self.leaderIndex = ko.observable();
         self.currentRound = ko.observable();
-        ko.mapping.fromJS(data, {
+        ko.mapping.fromJS(data.game, {
             copy: ['id'],
             players: {
                 create: function (options) {
@@ -67,7 +81,12 @@ $(function () {
             }
         }, this);
         
-        self.currentPlayerIndex = ko.observable(currentPlayerIndex);
+        self.socket = io.connect('http://' + data.socketIp);
+        self.socket.on('refresh', function (game) {
+            ko.mapping.fromJS(game, self);
+        });
+        
+        self.currentPlayerIndex = ko.observable(data.currentPlayerIndex);
         
         self.currentPlayer = ko.computed(function () {
             if (isNaN(self.currentPlayerIndex())) {
@@ -244,6 +263,6 @@ $(function () {
         };
     }
     
-    var gameModel = new Game(data.game, data.currentPlayerIndex);
+    var gameModel = new Game(data);
     ko.applyBindings(gameModel, $('#game')[0]);
 });
