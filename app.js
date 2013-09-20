@@ -545,7 +545,13 @@ app.post('/', function (req, res, next) {
 });
 
 app.get('/impersonate/:id/:userId?', function (req, res, next) {
-    if (req.game.isMultiDevice) {
+    if (req.headers.cookie.indexOf('debug-mafia=1') === -1) {
+        next(new Error('Forbidden'));
+    }
+    else if (!req.game.isMultiDevice) {
+        next(new Error('Cannot join single-device game'));
+    }
+    else {
         sendRefresh(req.game.toJSON({ virtuals: true, transform: true, showAffiliation: true}));
         if (req.params.userId) {
             for (var i = 0; i < req.game.players.length; i++) {
@@ -561,9 +567,6 @@ app.get('/impersonate/:id/:userId?', function (req, res, next) {
             res.clearCookie('userId', { path: '/' + req.params.id });
             res.send();
         }
-    }
-    else {
-        next(new Error('Cannot join single-device game'));
     }
 });
 
@@ -700,6 +703,10 @@ server.listen(app.get('port'), function(){
 
 io.sockets.on('connection', function (socket) {
     console.log('connected!');
+    socket.emit('connection');
+    socket.on('join', function (data) {
+        socket.join(data.room);
+    });
 });
 
 var gameData = {
@@ -762,5 +769,5 @@ function beginMethod (methodName, args) {
 }
 
 function sendRefresh(game) {
-    io.sockets.emit('refresh', game);
+    io.sockets.in(game.id).emit('refresh', game);
 }

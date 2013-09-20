@@ -4,13 +4,15 @@ $(function () {
     });
     
     $(document).keydown(function (e) {
-        if (e.which === 27) {
-            gameModel.unimpersonate();
-        }
-        else if (e.shiftKey) {
-            var playerIndex = e.which - 48;
-            if (gameModel.players()[playerIndex]) {
-                gameModel.players()[playerIndex].impersonate();
+        if (document.cookie.indexOf('debug-mafia=1') !== -1) {
+            if (e.which === 27) {
+                gameModel.unimpersonate();
+            }
+            else if (e.shiftKey) {
+                var playerIndex = e.which - 48;
+                if (gameModel.players()[playerIndex]) {
+                    gameModel.players()[playerIndex].impersonate();
+                }
             }
         }
     });
@@ -85,6 +87,9 @@ $(function () {
         }, this);
         
         self.socket = io.connect('http://' + data.socketIp);
+        self.socket.on('connection', function () {
+            self.socket.emit('join', { room: self.id });
+        });
         self.socket.on('refresh', function (game) {
             ko.mapping.fromJS(game, self);
         });
@@ -156,9 +161,13 @@ $(function () {
         };
         
         self.unimpersonate = function () {
-            $.get('/impersonate/' + self.id, function() {
-                self.currentPlayerIndex(NaN);
-                $('#player-name').focus();
+            $.ajax({
+                url: '/impersonate/' + self.id,
+                success: function() {
+                    self.currentPlayerIndex(NaN);
+                    $('#player-name').focus();
+                },
+                global: false
             });
         }
     }
@@ -246,12 +255,16 @@ $(function () {
         });
         
         self.impersonate = function () {
-            $.get('/impersonate/' + gameModel.id + '/' + self.id(), function (data) {
-                gameModel.currentPlayerIndex(data.currentPlayerIndex);
-                
-                if (gameModel.phase() === 'init') {
-                    $('#player-name').focus();
-                }
+            $.ajax({
+                url: '/impersonate/' + gameModel.id + '/' + self.id(),
+                success: function (data) {
+                    gameModel.currentPlayerIndex(data.currentPlayerIndex);
+                    
+                    if (gameModel.phase() === 'init') {
+                        $('#player-name').focus();
+                    }
+                },
+                global: false
             });
         }
         
