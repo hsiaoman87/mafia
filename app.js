@@ -60,6 +60,14 @@ playerSchema.pre('save', function (next) {
     next();
 });
 
+playerSchema.virtual('hasVoted').get(function () {
+    return !isNaN(this.voteApprove);
+});
+
+playerSchema.virtual('hasMissioned').get(function () {
+    return !isNaN(this.missionSuccess);
+});
+
 playerSchema.methods.update = function (newPlayer) {
     if (newPlayer.name !== undefined) {
         this.name = newPlayer.name;
@@ -124,16 +132,15 @@ gameSchema.pre('save', function (next) {
         }
         this.id = randomString(6);
     }
-    console.log(this);
     next();
 });
 
-gameSchema.post('save', function (next) {
-    sendRefresh(this);
+gameSchema.post('save', function (game) {
+    sendRefresh(this.toJSON({ virtuals: true, transform: true }));
 });
 
 gameSchema.virtual('isReady').get(function () {
-    if (this.players.length < 5) {
+    if (!this.players || this.players.length < 5) {
         return false;
     }
     for (var i = 0; i < this.players.length; i++) {
@@ -228,6 +235,18 @@ gameSchema.methods.nominate = function (ids, cb) {
     }
 }
 
+String.prototype.bool = function() {
+    if ((/^true$/i).test(this)) {
+        return true;
+    }
+    else if ((/^false$/i).test(this)) {
+        return false;
+    }
+    else {
+        return null;
+    }
+};
+
 gameSchema.methods.vote = function (playerId, approve, cb) {
     beginMethod('vote(playerId, approve, cb)', arguments);
     
@@ -235,7 +254,13 @@ gameSchema.methods.vote = function (playerId, approve, cb) {
         cb(new Error('Voting not allowed'));
     }
     else {
-        this.players[playerId].voteApprove = approve;
+        if (typeof approve === 'boolean') {
+            console.log('hello: ' + approve);
+            this.players[playerId].voteApprove = approve;
+        }
+        else {
+            this.players[playerId].voteApprove = undefined;
+        }
         this._evaluateVote(cb);
     }
 }
@@ -250,7 +275,12 @@ gameSchema.methods.mission = function (playerId, succeed, cb) {
         cb(new Error('Player is not on team'));
     }
     else {
-        this.players[playerId].missionSuccess = succeed;
+        if (typeof succeed === 'boolean') {
+            this.players[playerId].missionSuccess = succeed;
+        }
+        else {
+            this.players[playerId].missionSuccess = undefined;
+        }
         this._evaluateMission(cb);
     }
 }
@@ -440,7 +470,7 @@ app.get('/:id', function (req, res, next) {
         res.render('game_multi', {
             title: 'Play (multi-device)',
             data: {
-                game: req.game.toJSON({transform: true, showAffiliation: showAffiliation}),
+                game: req.game.toJSON({ virtuals: true, transform: true, showAffiliation: showAffiliation }),
                 currentPlayerIndex: req.currentPlayerIndex,
                 socketIp: req.socket.address().address,
                 debug: req.query.debug
@@ -463,7 +493,7 @@ app.get('/:id', function (req, res, next) {
 // Fetch game data
 app.get('/:id/_api/game', function (req, res, next) {
     if (req.query.debug) {
-        res.send(req.game.toObject());
+        res.send(req.game.toObject({ virtuals: true }));
     }
     else {
         res.send(req.game);
@@ -516,7 +546,7 @@ app.post('/', function (req, res, next) {
 
 app.get('/impersonate/:id/:userId?', function (req, res, next) {
     if (req.game.isMultiDevice) {
-        sendRefresh(req.game.toJSON({transform: true, showAffiliation: true}));
+        sendRefresh(req.game.toJSON({ virtuals: true, transform: true, showAffiliation: true}));
         if (req.params.userId) {
             for (var i = 0; i < req.game.players.length; i++) {
                 if (req.game.players[i].id === req.params.userId) {
@@ -599,7 +629,6 @@ function validateUser (req, res, next) {
         next(new Error('Cannot update someone else'));
     }
     else {
-        console.log(req.player);
         next();
     }
 }
@@ -643,7 +672,7 @@ app.post('/:id/_api/nominate', function (req, res, next) {
 
 // Vote
 app.post('/:id/_api/:userId/vote', validateUser, function (req, res, next) {
-    req.game.vote(req.params.userId, req.body.approve, function (err, game) {
+    req.game.vote(req.params.userId, req.body.approve.bool(), function (err, game) {
         if (err) {
             next(err);
         }
@@ -655,7 +684,7 @@ app.post('/:id/_api/:userId/vote', validateUser, function (req, res, next) {
 
 // Mission
 app.post('/:id/_api/:userId/mission', function (req, res, next) {
-    req.game.mission(req.params.userId, req.body.succeed, function (err, game) {
+    req.game.mission(req.params.userId, req.body.succeed.bool(), function (err, game) {
         if (err) {
             next(err);
         }
@@ -669,9 +698,7 @@ server.listen(app.get('port'), function(){
     console.log('Express server listening on port ' + app.get('port'));
 });
 
-
 io.sockets.on('connection', function (socket) {
-    
     console.log('connected!');
 });
 
@@ -735,6 +762,5 @@ function beginMethod (methodName, args) {
 }
 
 function sendRefresh(game) {
-    beginMethod('sendRefresh', arguments);
     io.sockets.emit('refresh', game);
 }

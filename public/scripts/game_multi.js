@@ -127,7 +127,8 @@ $(function () {
         
         self.scores = ko.computed(function () {
             return $.map(self.rounds(), function (round) {
-                return round.result() ? 'success' : 'fail';
+                var result = round.result();
+                return isNaN(result) ? null : result ? 'success' : 'fail';
             });
         });
         
@@ -147,6 +148,9 @@ $(function () {
                 ids: nomineeIds
             },
             function (game) {
+                $.each(self.players(), function (index, player) {
+                    player.isSelected(false);
+                });
                 ko.mapping.fromJS(game, self);
             });
         };
@@ -158,6 +162,8 @@ $(function () {
             });
         }
     }
+    
+    //$('.toggle-button').button();
     
     function Round(data, game) {
         var self = this;
@@ -190,7 +196,7 @@ $(function () {
             var approveCount = 0;
             var rejectCount = 0;
             $.each(self.iterations(), function (index, iteration) {
-                if (iteration.vote) {
+                if (iteration.vote()) {
                     approveCount++;
                 }
                 else {
@@ -218,6 +224,10 @@ $(function () {
     function Player(data) {
         var self = this;
         
+        self.hasVoted = ko.observable();
+        self.hasMissioned = ko.observable();
+        self.voteApprove = ko.observable();
+        self.missionSuccess = ko.observable();
         self.affiliation = ko.observable(AFFILIATION.Townsperson);
         self.isSelected = ko.observable(false);
         self.nominee = ko.observable(false);
@@ -247,8 +257,9 @@ $(function () {
         
         self.vote = function (approve) {
             var playerIndex = gameModel.players.mappedIndexOf(self);
+            
             $.post('/' + gameModel.id + '/_api/' + playerIndex + '/vote', {
-                approve: approve
+                approve: self.voteApprove() === approve ? null : approve
             },
             function (game) {
                 ko.mapping.fromJS(game, gameModel);

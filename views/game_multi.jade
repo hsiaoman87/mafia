@@ -31,24 +31,30 @@ block content
                     td Id
                     td(data-bind="text: id")
                 tr(data-bind="visible: $parent.phase() === 'nominate' && $parent.leaderIndex() === $parent.currentPlayerIndex()")
-                    td Nominate
-                        div(data-bind="text: 'Team Size: ' + $parent.teamSize()")
+                    td(data-bind="text: 'Nominate ' + $parent.teamSize()")
+                    td
                         <!-- ko foreach: $parent.players -->
                         div
-                            input(type="checkbox", data-bind="checked: isSelected")
-                            span(data-bind="text: name")
+                            input(type="checkbox", data-bind="checked: isSelected, attr: { id: 'nominate' + $index() }")
+                            label(data-bind="text: name, attr: { for: 'nominate' + $index() }")
                         <!-- /ko -->
                         button(data-bind="click: $parent.submitNominees") OK
                 tr(data-bind="visible: $parent.phase() === 'vote'")
                     td Vote
                     td
-                        button(data-bind="click: vote.bind($data, true)") Approve
-                        button(data-bind="click: vote.bind($data, false)") Reject
+                        input#approveVote.toggle-button(type="checkbox", data-bind="checked: hasVoted() && voteApprove(), click: vote.bind($data, true)")
+                        label(for="approveVote") Approve
+                        input#rejectVote.toggle-button(type="checkbox", data-bind="checked: hasVoted() && !voteApprove(), click: vote.bind($data, false)")
+                        label(for="rejectVote") Reject
+                    td(data-bind="text: voteApprove")
                 tr(data-bind="visible: $parent.phase() === 'mission' && nominee()")
                     td Mission
                     td
-                        button(data-bind="click: mission.bind($data, true)") Succeed
-                        button(data-bind="click: mission.bind($data, false)") Fail
+                        input#succeedMission.toggle-button(type="checkbox", data-bind="checked: hasMissioned() && missionSuccess(), click: mission.bind($data, true)")
+                        label(for="succeedMission") Succeed
+                        input#failMission.toggle-button(type="checkbox", data-bind="checked: hasMissioned() && !missionSuccess(), click: mission.bind($data, false)")
+                        label(for="failMission") Fail
+                    td(data-bind="text: missionSuccess")
             <!-- /ko -->
         div(data-bind="visible: phase() !== 'init'")
             h2 Game
@@ -56,13 +62,15 @@ block content
                 tr(data-bind="visible: hasTeamMates")
                     td Teammates
                     td
-                        div(data-bind="foreach: teamMates")
-                            span(data-bind="text: name")
+                        <!-- ko foreach: teamMates -->
+                        div(data-bind="text: name")
+                        <!-- /ko -->
                 tr
                     td Score
                     td
-                        div(data-bind="foreach: scores")
-                            span(data-bind="text: $data")
+                        <!-- ko foreach: scores -->
+                        div(data-bind="text: $data")
+                        <!-- /ko -->
                 tr
                     td Current Round
                     td(data-bind="text: currentRound() + 1")
