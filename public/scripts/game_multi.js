@@ -72,6 +72,9 @@ $(function () {
             players: {
                 create: function (options) {
                     return new Player(options.data);
+                },
+                key: function (data) {
+                    return ko.utils.unwrapObservable(data.id);
                 }
             },
             rounds: {
@@ -97,6 +100,16 @@ $(function () {
             }
         });
         
+        self.hasTeamMates = ko.computed(function () {
+            return self.currentPlayer().affiliation() === AFFILIATION.Mafia;
+        });
+        
+        self.teamMates = ko.computed(function () {
+            return $.grep(self.players(), function (player) {
+                return player.affiliation() === AFFILIATION.Mafia;
+            });
+        });
+        
         self.teamSize = ko.computed(function () {
             if (gameData[self.players().length]) {
                 return gameData[self.players().length].teamCount[self.currentRound()];
@@ -107,8 +120,14 @@ $(function () {
         });
         
         self.candidates = ko.computed(function () {
-            return $.grep(self.players(), function (element, index) {
-                return element.nominee();
+            return $.grep(self.players(), function (player) {
+                return player.nominee();
+            });
+        });
+        
+        self.scores = ko.computed(function () {
+            return $.map(self.rounds(), function (round) {
+                return round.result() ? 'success' : 'fail';
             });
         });
         
@@ -134,7 +153,8 @@ $(function () {
         
         self.unimpersonate = function () {
             $.get('/impersonate/' + self.id, function() {
-                location.reload();
+                self.currentPlayerIndex(NaN);
+                $('#player-name').focus();
             });
         }
     }
@@ -198,6 +218,7 @@ $(function () {
     function Player(data) {
         var self = this;
         
+        self.affiliation = ko.observable(AFFILIATION.Townsperson);
         self.isSelected = ko.observable(false);
         self.nominee = ko.observable(false);
         self.isReady = ko.observable(false);
@@ -205,6 +226,10 @@ $(function () {
         self.id = ko.observable();
         ko.mapping.fromJS(data, {
         }, this);
+        
+        self.affiliationName = ko.computed(function () {
+            return self.affiliation() === AFFILIATION.Mafia ? 'Mafia' : 'Townspeople';
+        });
         
         self.isReady.subscribe(function () {
             self.save();

@@ -20,6 +20,9 @@ block content
                     td(data-bind="visible: $parent.phase() === 'init'")
                         input#player-name(data-bind="value: name", placeholder="Enter player name")
                         button(data-bind="click: save") OK
+                tr(data-bind="visible: $parent.phase() !== 'init'")
+                    td Affiliation
+                    td(data-bind="text: affiliationName")
                 tr(data-bind="visible: $parent.phase() === 'init'")
                     td Ready?
                     td
@@ -50,6 +53,16 @@ block content
         div(data-bind="visible: phase() !== 'init'")
             h2 Game
             table
+                tr(data-bind="visible: hasTeamMates")
+                    td Teammates
+                    td
+                        div(data-bind="foreach: teamMates")
+                            span(data-bind="text: name")
+                tr
+                    td Score
+                    td
+                        div(data-bind="foreach: scores")
+                            span(data-bind="text: $data")
                 tr
                     td Current Round
                     td(data-bind="text: currentRound() + 1")

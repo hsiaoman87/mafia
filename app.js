@@ -44,7 +44,9 @@ var playerSchema = new Schema({
 }, {
     toJSON: {
         transform: function (doc, ret, options) {
-            delete ret.affiliation;
+            if (!options.showAffiliation) {
+                delete ret.affiliation;
+            }
             delete ret.__v;
             delete ret._id;
         }
@@ -433,11 +435,12 @@ app.get('/', function (req, res) {
 
 // View game
 app.get('/:id', function (req, res, next) {
+    var showAffiliation = req.game.players[req.currentPlayerIndex] && req.game.players[req.currentPlayerIndex].affiliation === AFFILIATION.Mafia;
     if (req.game.isMultiDevice) {
         res.render('game_multi', {
             title: 'Play (multi-device)',
             data: {
-                game: req.game,
+                game: req.game.toJSON({transform: true, showAffiliation: showAffiliation}),
                 currentPlayerIndex: req.currentPlayerIndex,
                 socketIp: req.socket.address().address,
                 debug: req.query.debug
@@ -513,6 +516,7 @@ app.post('/', function (req, res, next) {
 
 app.get('/impersonate/:id/:userId?', function (req, res, next) {
     if (req.game.isMultiDevice) {
+        sendRefresh(req.game.toJSON({transform: true, showAffiliation: true}));
         if (req.params.userId) {
             for (var i = 0; i < req.game.players.length; i++) {
                 if (req.game.players[i].id === req.params.userId) {
