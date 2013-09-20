@@ -9,7 +9,7 @@ block scripts
 block content
     h1= title
     div#game
-        div(data-bind="visible: !isNaN(currentPlayerIndex())")
+        div(data-bind="visible: phase() === 'init' || !isNaN(currentPlayerIndex())")
             h2 Current Player
             <!-- ko with: currentPlayer -->
             table

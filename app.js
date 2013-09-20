@@ -402,7 +402,7 @@ function randomString(len) {
 
 app.param('id', function (req, res, next, id) {
     Game.findOne({
-        id: id
+        id: { $regex: new RegExp(id, 'i') }
     }, function (err, game) {
         if (err) {
             next(err);
