@@ -12,10 +12,6 @@ block content
     h3 Join
     input(data-bind="value: joinGameId", placeholder="Enter game code")
     button(data-bind="click: join") Go
-    h3 Rejoin
-    input(data-bind="value: rejoinGameId", placeholder="Enter game code")
-    input(data-bind="value: rejoinUserId", placeholder="Enter user id")
-    button(data-bind="click: rejoin") Go
     h2 Single Device
     div(data-bind="foreach: players")
         input(data-bind="value: name, event: { keypress: $parent.onKeyPress }, hasfocus: hasFocus")

@@ -1,0 +1,16 @@
+extends layout
+
+block scripts
+    script(src='/socket.io/socket.io.js')
+    script(src='/scripts/login.js')
+    script.
+        var referer = '!{req.session.referer || ''}';
+
+block content
+    h1= title
+    div
+        a(href="/auth/facebook") Facebook
+    div
+        a(href="/auth/google") Google
+    div
+        a(href="#", data-bind="click: createGuest") Guest

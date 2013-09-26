@@ -1,10 +1,12 @@
 $(function () {
     $(document).ajaxError(function (e, jqXHR) {
-        alert(jqXHR.responseText);
+        if (jqXHR.responseText) {
+            alert(jqXHR.responseText);
+        }
     });
     
     $(document).keydown(function (e) {
-        if (document.cookie.indexOf('debug-mafia=1') !== -1) {
+        if (gameModel.debug) {
             if (e.which === 27) {
                 gameModel.unimpersonate();
             }
@@ -16,7 +18,6 @@ $(function () {
             }
         }
     });
-    $('#player-name').focus();
     
     var gameData = {
         5: {
@@ -66,14 +67,14 @@ $(function () {
     
     function Game(data) {
         var self = this;
-        self.debug = document.cookie.indexOf('debug-mafia=1') !== -1;
+        self.debug = data.debug;
         self.leaderIndex = ko.observable();
         self.currentRound = ko.observable();
         ko.mapping.fromJS(data.game, {
             copy: ['id'],
             players: {
                 create: function (options) {
-                    return new Player(options.data);
+                    return new Player(options.data, self);
                 },
                 key: function (data) {
                     return ko.utils.unwrapObservable(data.id);
@@ -86,27 +87,31 @@ $(function () {
             }
         }, this);
         
-        self.socket = io.connect('http://' + data.socketIp);
+        self.socket = io.connect('/');
         self.socket.on('connection', function () {
             self.socket.emit('join', { room: self.id });
         });
         self.socket.on('refresh', function (game) {
+            console.log('refreshed');
+            console.log(game);
             ko.mapping.fromJS(game, self);
         });
         
-        self.currentPlayerIndex = ko.observable(data.currentPlayerIndex);
+        self.user = ko.observable(new Player(data.user, self));
         
         self.currentPlayer = ko.computed(function () {
-            if (isNaN(self.currentPlayerIndex())) {
-                return new Player();
-            }
-            else {
-                return self.players()[self.currentPlayerIndex()];
-            }
+            return $.grep(self.players(), function (player) {
+                return player.user.id() === self.user()._id();
+            })[0] || self.user();
         });
         
         self.hasTeamMates = ko.computed(function () {
-            return self.currentPlayer().affiliation() === AFFILIATION.Mafia;
+            if (self.currentPlayer()) {
+                return self.currentPlayer().affiliation() === AFFILIATION.Mafia;
+            }
+            else {
+                return false;
+            }
         });
         
         self.teamMates = ko.computed(function () {
@@ -141,6 +146,10 @@ $(function () {
             return self.players()[self.leaderIndex()];
         });
         
+        self.isLeader = ko.computed(function () {
+            return self.phase() === 'nominate' && self.currentLeader() === self.currentPlayer();
+        });
+        
         self.submitNominees = function () {
             var nomineeIds = [];
             $.each(self.players(), function (index, player) {
@@ -156,7 +165,6 @@ $(function () {
                 $.each(self.players(), function (index, player) {
                     player.isSelected(false);
                 });
-                ko.mapping.fromJS(game, self);
             });
         };
         
@@ -164,8 +172,7 @@ $(function () {
             $.ajax({
                 url: '/impersonate/' + self.id,
                 success: function() {
-                    self.currentPlayerIndex(NaN);
-                    $('#player-name').focus();
+                    location.reload();
                 },
                 global: false
             });
@@ -230,7 +237,7 @@ $(function () {
         });
     }
     
-    function Player(data) {
+    function Player(data, gameModel) {
         var self = this;
         
         self.hasVoted = ko.observable();
@@ -246,23 +253,48 @@ $(function () {
         ko.mapping.fromJS(data, {
         }, this);
         
+        self.hasVoted.subscribe(function (hasVoted) {
+            if (!hasVoted) {
+                self.voteApprove(null);
+            }
+        }); 
+        
+        self.hasMissioned.subscribe(function (hasMissioned) {
+            if (!hasMissioned) {
+                self.missionSuccess(null);
+            }
+        }); 
+        
+        self.voteApproved = ko.computed(function () {
+            return self.hasVoted() && self.voteApprove();
+        });
+        
+        self.voteRejected = ko.computed(function () {
+            return self.hasVoted() && !self.voteApprove();
+        });
+        
+        self.missionSucceeded = ko.computed(function () {
+            return self.hasMissioned() && self.missionSuccess();
+        });
+        
+        self.missionFailed = ko.computed(function () {
+            return self.hasMissioned() && !self.missionSuccess();
+        });
+        
         self.affiliationName = ko.computed(function () {
             return self.affiliation() === AFFILIATION.Mafia ? 'Mafia' : 'Townspeople';
         });
         
-        self.isReady.subscribe(function () {
-            self.save();
+        self.playerIndex = ko.computed(function () {
+            return gameModel.players.mappedIndexOf(self);
         });
         
         self.impersonate = function () {
+            var playerIndex = gameModel.players.mappedIndexOf(self);
             $.ajax({
-                url: '/impersonate/' + gameModel.id + '/' + self.id(),
+                url: '/impersonate/' + gameModel.id + '/' + playerIndex,
                 success: function (data) {
-                    gameModel.currentPlayerIndex(data.currentPlayerIndex);
-                    
-                    if (gameModel.phase() === 'init') {
-                        $('#player-name').focus();
-                    }
+                    ko.mapping.fromJS(data, gameModel.user());
                 },
                 global: false
             });
@@ -270,49 +302,35 @@ $(function () {
         
         self.vote = function (approve) {
             var playerIndex = gameModel.players.mappedIndexOf(self);
-            
             $.post('/' + gameModel.id + '/_api/' + playerIndex + '/vote', {
                 approve: self.voteApprove() === approve ? null : approve
-            },
-            function (game) {
-                ko.mapping.fromJS(game, gameModel);
             });
         };
         
         self.mission = function (succeed) {
             var playerIndex = gameModel.players.mappedIndexOf(self);
             $.post('/' + gameModel.id + '/_api/' + playerIndex + '/mission', {
-                succeed: succeed
-            },
-            function (game) {
-                ko.mapping.fromJS(game, gameModel);
+                succeed: self.missionSuccess() === succeed ? null : succeed
             });
         };
         
         self.save = function () {
-            if (self.id()) {
-                $.ajax('/' + gameModel.id + '/_api/users/' + self.id(), {
-                    data: {
-                        name: self.name,
-                        isReady: self.isReady
-                    },
-                    type: 'PATCH',
-                    success: function (player) {
-                        // TODO: update players in case game is ready
-                        ko.mapping.fromJS(player, self);
-                    }
-                });
-            }
-            else {
-                $.post('/' + gameModel.id + '/_api/users', {
-                    name: self.name,
-                    isReady: self.isReady
-                },
-                function (player) {
-                    // TODO: add new player to list
-                    ko.mapping.fromJS(player, self);
-                });
-            }
+            var playerIndex = gameModel.players.mappedIndexOf(self);
+            $.ajax('/' + gameModel.id + '/_api/users/' + playerIndex, {
+                data: { isReady: self.isReady() },
+                type: 'PATCH'
+            });
+        };
+        
+        self.join = function () {
+            $.post('/' + gameModel.id + '/_api/users');
+        };
+        
+        self.leave = function () {
+            var playerIndex = gameModel.players.mappedIndexOf(self);
+            $.ajax('/' + gameModel.id + '/_api/users/' + playerIndex, {
+                type: 'DELETE'
+            });
         };
     }
     

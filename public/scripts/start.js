@@ -4,8 +4,6 @@ $(function () {
         self.players = ko.observableArray();
         
         self.joinGameId = '';
-        self.rejoinGameId = '';
-        self.rejoinUserId = '';
         
         self.startSingle = function () {
             $.post('/', {
@@ -27,15 +25,6 @@ $(function () {
         
         self.join = function () {
             $.post(self.joinGameId + '/_api/join', null,
-            function (game) {
-                location.href = '/' + game.id;
-            });
-        }
-        
-        self.rejoin = function() {
-            $.post(self.rejoinGameId + '/_api/join', {
-                userId: self.rejoinUserId
-            },
             function (game) {
                 location.href = '/' + game.id;
             });

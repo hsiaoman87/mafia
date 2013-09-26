@@ -4,11 +4,26 @@ html
         title= title
         link(rel='stylesheet', href='/styles/style.css')
         link(rel='stylesheet', href='/css/dark-hive/jquery-ui-1.10.3.custom.css')
+        script.
+            // handle facebook redirect bug
+            if (window.location.hash === '#_=_'){
+                window.location.hash = '';
+            }
         script(src='/scripts/jquery-2.0.2.js')
-        script(src='/js/jquery-ui-1.10.3.custom.js')
-        script(src='/scripts/knockout-2.2.1.js')
-        script(src='/scripts/knockout.mapping-latest.debug.js')
+        if req.debug
+            script(src='/js/jquery-ui-1.10.3.custom.js')
+            script(src='/scripts/knockout-2.2.1.debug.js')
+            script(src='/scripts/knockout.mapping-latest.debug.js')
+        else
+            script(src='/js/jquery-ui-1.10.3.custom.min.js')
+            script(src='/scripts/knockout-2.2.1.js')
+            script(src='/scripts/knockout.mapping-latest.js')
         block scripts
-
     body
+        div
+            if req.user
+                span= req.user.name
+                a(href="/logout") Logout
+            else
+                a(href="/login") Login
         block content

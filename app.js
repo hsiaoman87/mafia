@@ -1,3 +1,7 @@
+var CONSTANTS = {
+    RemoteAddress: 'http://66.26.86.96:3000'
+}
+
 var express = require('express'),
     app = express(),
     routes = require('./routes'),
@@ -6,7 +10,10 @@ var express = require('express'),
     server = http.createServer(app),
     io = require('socket.io').listen(server),
     mongoose = require('mongoose'),
-	Schema = mongoose.Schema;
+    Schema = mongoose.Schema,
+    passport = require('passport'),
+    FacebookStrategy = require('passport-facebook').Strategy,
+    GoogleStrategy = require('passport-google').Strategy;
 
 // all environments
 app.set('port', process.env.PORT || 3000);
@@ -16,7 +23,25 @@ app.use(express.favicon());
 app.use(express.logger('dev'));
 app.use(express.bodyParser());
 app.use(express.methodOverride());
-app.use(express.cookieParser('6362564423'));
+app.use(express.cookieParser());
+app.use(express.session({ secret: 'kirby' }));
+app.use(passport.initialize());
+app.use(passport.session());
+
+app.use(function (req, res, next) {
+    res.locals.req = req;
+    next();
+});
+app.use(function (req, res, next) {
+    if (typeof req.query.debug !== 'undefined') {
+        req.debug = req.query.debug.bool();
+    }
+    else {
+        req.debug = req.cookies['debug-mafia'];
+    }
+    next();
+});
+
 app.use(app.router);
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -27,20 +52,171 @@ if ('development' == app.get('env')) {
 
 mongoose.connect('mongodb://localhost/my_database');
 
-var playerSchema = new Schema({
-    id: String,
-    isReady: {
-        type: Boolean,
-        default: false
+function clearReferer(req, res, next) {
+    console.log('current url: ' + req.url);
+    console.log('deleting referer: ' + req.session.referer);
+    delete req.session.referer;
+    next();
+}
+
+function ensureAuthenticated (req, res, next) {
+    if (req.isAuthenticated()) {
+        return next();
+    }
+    
+    if (req.route.method === 'get') {
+        req.session.referer = req.url;
+        console.log('saving referer: ' + req.session.referer);
+        res.redirect('/login');
+    }
+    else {
+        next(new Error('Not authenticated'));
+    }
+}
+
+function validateUser (req, res, next) {
+    if (!req.game.players[req.params.playerIndex]) {
+        next(new Error('Invalid playerIndex'));
+    }
+    else if (req.currentPlayerIndex !== +req.params.playerIndex) {
+        console.log(req.currentPlayerIndex + ' !== ' + req.params.playerIndex);
+        next(new Error('Cannot update someone else'));
+    }
+    else {
+        next();
+    }
+}
+
+function postAuthenticate(req, res) {
+    if (req.session.referer) {
+        var referer = req.session.referer;
+        
+        console.log('clearing referer: ' + req.session.referer);
+        delete req.session.referer;
+        res.redirect(referer);
+    }
+    else {
+        res.redirect('/');
+    }
+}
+
+passport.use(
+    new FacebookStrategy({
+        clientID: '438271556283546',
+        clientSecret: '060b9433305213195103d15e2345e372',
+        callbackURL: CONSTANTS.RemoteAddress + '/auth/facebook/callback'
+    },
+    function (accessToken, refreshToken, profile, done) {
+        console.log('facebook callback');
+        console.log(arguments);
+        
+        User.findOneAndUpdate({ facebookId: profile.id }, {
+            name: (profile.name && profile.name.givenName) || profile.displayName
+        }, { upsert: true }, done);
+    })
+);
+
+passport.use(
+    new GoogleStrategy({
+        returnURL: CONSTANTS.RemoteAddress + '/auth/google/return',
+        realm: CONSTANTS.RemoteAddress
+    },
+    function (identifier, profile, done) {
+        console.log('google callback');
+        console.log(arguments);
+        
+        User.findOneAndUpdate({ googleId: identifier }, {
+            name: (profile.name && profile.name.givenName) || profile.displayName
+        }, { upsert: true }, done);
+    })
+);
+
+passport.serializeUser(function (user, done) {
+    console.log(user);
+    done(null, user._id);
+});
+
+passport.deserializeUser(function (obj, done) {
+    User.findById(obj, done);
+});
+
+app.get('/auth/facebook', passport.authenticate('facebook'));
+app.get('/auth/facebook/callback', passport.authenticate('facebook'), postAuthenticate);
+
+app.get('/auth/google', passport.authenticate('google'));
+app.get('/auth/google/return', passport.authenticate('google'), postAuthenticate);
+
+app.post('/auth/guest', function (req, res, next) {
+    if (req.body.name && req.body.name.trim()) {
+        console.log(req.body.name);
+        User.create({
+            name: req.body.name.trim()
+        }, function (err, newUser) {
+            if (err) {
+                next(err);
+            }
+            else {
+                req.login(newUser, function (err) {
+                    if (err) {
+                        return next(err);
+                    }
+                    else {
+                        res.send(201);
+                    }
+                });
+            }
+        });
+    }
+    else {
+        res.send(400);
+    }
+});
+
+app.get('/logout', function (req, res) {
+    console.log('logging out');
+    req.logout();
+    res.redirect('/');
+});
+
+app.get('/login', function (req, res) {
+    res.render('login', {
+        title: 'Login',
+        user: req.user
+    });
+});
+
+app.get('/test', function (req, res) {
+    User.find(null, function (err, users) {
+        console.log(arguments);
+        res.send(users);
+    });
+});
+
+var userSchema = new Schema({
+    facebookId: {
+        type: String
+    },
+    googleId: {
+        type: String
     },
     name: {
         type: String,
         required: true
+    }
+});
+
+var User = mongoose.model('User', userSchema);
+
+var playerSchema = new Schema({
+    isReady: {
+        type: Boolean,
+        default: false
     },
     affiliation: Number,
     nominee: Boolean,
     voteApprove: Boolean,
-    missionSuccess: Boolean
+    missionSuccess: Boolean,
+    user: { type: String, ref: 'User' }
 }, {
     toJSON: {
         transform: function (doc, ret, options) {
@@ -53,11 +229,8 @@ var playerSchema = new Schema({
     }
 });
 
-playerSchema.pre('save', function (next) {
-    if (this.isNew) {
-        this.id = randomString(6);
-    }
-    next();
+playerSchema.virtual('name').get(function () {
+    return this.user.name;
 });
 
 playerSchema.virtual('hasVoted').get(function () {
@@ -69,9 +242,6 @@ playerSchema.virtual('hasMissioned').get(function () {
 });
 
 playerSchema.methods.update = function (newPlayer) {
-    if (newPlayer.name !== undefined) {
-        this.name = newPlayer.name;
-    }
     if (newPlayer.isReady !== undefined) {
         this.isReady = newPlayer.isReady;
     }
@@ -136,7 +306,10 @@ gameSchema.pre('save', function (next) {
 });
 
 gameSchema.post('save', function (game) {
-    sendRefresh(this.toJSON({ virtuals: true, transform: true }));
+    Game.findOne({ id: this.id }).populate('players.user').exec(function (err, game) {
+        console.log('saving');
+        sendRefresh(game.toJSON({ virtuals: true, transform: true }));
+    });
 });
 
 gameSchema.virtual('isReady').get(function () {
@@ -157,10 +330,6 @@ gameSchema.methods.addPlayer = function (player, cb) {
     
 	if (this.phase === PHASE.Init) {
         this.players.push(player);
-        
-        if (this.isReady) {
-            this.initialize();
-        }
         this.save(cb);
     }
     else {
@@ -168,17 +337,36 @@ gameSchema.methods.addPlayer = function (player, cb) {
     }
 }
 
-gameSchema.methods.updatePlayer = function (userId, newPlayer, cb) {
-    beginMethod('updatePlayer(userId, newPlayer, cb)', arguments);
+gameSchema.methods.removePlayer = function (playerIndex, cb) {
+    beginMethod('removePlayer(playerIndex, cb)', arguments);
     
     if (this.phase !== PHASE.Init) {
+        cb(new Error('Cannot add player because game has already started'));
+    }
+    else if (!this.players[playerIndex]) {
+        console.log(this.players);
+        console.log(playerIndex);
+        cb(new Error('Player does not exist'));
+    }
+	else {
+        this.players.splice(playerIndex, 1);
+        this.save(cb);
+    }
+}
+
+gameSchema.methods.updatePlayer = function (playerIndex, newPlayer, cb) {
+    beginMethod('updatePlayer(playerIndex, newPlayer, cb)', arguments);
+    
+    if (this.phase !== PHASE.Init) {
+        console.log(this.phase);
+        console.log(PHASE.Init);
         cb(new Error('Cannot update player because game has already started'));
     }
-    else if (!this.players[userId]) {
+    else if (!this.players[playerIndex]) {
         cb(new Error('Invalid player id'));
     }
     else {
-        var player = this.players[userId];
+        var player = this.players[playerIndex];
         player.update(newPlayer, cb);
         
         if (this.isReady) {
@@ -235,51 +423,38 @@ gameSchema.methods.nominate = function (ids, cb) {
     }
 }
 
-String.prototype.bool = function() {
-    if ((/^true$/i).test(this)) {
-        return true;
-    }
-    else if ((/^false$/i).test(this)) {
-        return false;
-    }
-    else {
-        return null;
-    }
-};
-
-gameSchema.methods.vote = function (playerId, approve, cb) {
-    beginMethod('vote(playerId, approve, cb)', arguments);
+gameSchema.methods.vote = function (playerIndex, approve, cb) {
+    beginMethod('vote(playerIndex, approve, cb)', arguments);
     
     if (this.phase !== PHASE.Vote) {
         cb(new Error('Voting not allowed'));
     }
     else {
         if (typeof approve === 'boolean') {
-            console.log('hello: ' + approve);
-            this.players[playerId].voteApprove = approve;
+            this.players[playerIndex].voteApprove = approve;
         }
         else {
-            this.players[playerId].voteApprove = undefined;
+            this.players[playerIndex].voteApprove = undefined;
         }
         this._evaluateVote(cb);
     }
 }
 
-gameSchema.methods.mission = function (playerId, succeed, cb) {
-    beginMethod('mission(playerId, succeed, cb)', arguments);
+gameSchema.methods.mission = function (playerIndex, succeed, cb) {
+    beginMethod('mission(playerIndex, succeed, cb)', arguments);
     
     if (this.phase !== PHASE.Mission) {
         cb(new Error('Not on a mission'));
     }
-    else if (!this.players[playerId].nominee) {
+    else if (!this.players[playerIndex].nominee) {
         cb(new Error('Player is not on team'));
     }
     else {
         if (typeof succeed === 'boolean') {
-            this.players[playerId].missionSuccess = succeed;
+            this.players[playerIndex].missionSuccess = succeed;
         }
         else {
-            this.players[playerId].missionSuccess = undefined;
+            this.players[playerIndex].missionSuccess = undefined;
         }
         this._evaluateMission(cb);
     }
@@ -423,32 +598,24 @@ gameSchema.methods._evaluateMission = function (cb) {
 
 var Game = mongoose.model('Game', gameSchema);
 
-function randomString(len) {
-    var charSet = 'abcdefghijklmnopqrstuvwxyz';
-    var randomString = '';
-    for (var i = 0; i < len; i++) {
-        randomString += charSet.charAt(Math.floor(Math.random() * charSet.length));
-    }
-    return randomString;
-}
-
 app.param('id', function (req, res, next, id) {
     Game.findOne({
         id: { $regex: new RegExp(id, 'i') }
-    }, function (err, game) {
+    }).populate('players.user').exec(function (err, game) {
         if (err) {
             next(err);
         }
         else if (game) {
-            if (req.cookies['userId']) {
+            if (req.user) {
                 for (var i = 0; i < game.players.length; i++) {
-                    if (game.players[i]._id.equals(req.cookies['userId'])) {
+                    if (game.players[i].user.id === req.user.id) {
                         req.currentPlayerIndex = i;
                         break;
                     }
                 }
             }
             
+            console.log('setting req.game');
             req.game = game;
             next();
         }
@@ -459,40 +626,28 @@ app.param('id', function (req, res, next, id) {
 });
 
 // View start
-app.get('/', function (req, res) {
+app.get('/', clearReferer, function (req, res) {
     res.render('start', { title: 'Mafia' });
 });
 
 // View game
-app.get('/:id', function (req, res, next) {
+app.get('/:id', ensureAuthenticated, clearReferer, function (req, res, next) {
     var showAffiliation = req.game.players[req.currentPlayerIndex] && req.game.players[req.currentPlayerIndex].affiliation === AFFILIATION.Mafia;
-    if (req.game.isMultiDevice) {
-        res.render('game_multi', {
-            title: 'Play (multi-device)',
-            data: {
-                game: req.game.toJSON({ virtuals: true, transform: true, showAffiliation: showAffiliation }),
-                currentPlayerIndex: req.currentPlayerIndex,
-                socketIp: req.socket.address().address,
-                debug: req.query.debug
-            }
-        });
-    }
-    else {
-        res.render('game_multi', {
-            title: 'Play (single-device)',
-            data: {
-                game: req.game,
-                currentPlayerIndex: req.currentPlayerIndex,
-                socketIp: req.socket.address().address,
-                debug: req.query.debug
-            }
-        });
-    }
+    console.log('currentPlayerIndex' + req.currentPlayerIndex);
+    res.render('game_multi', {
+        title: 'Play (multi-device)',
+        data: {
+            game: req.game.toJSON({ virtuals: true, transform: true, showAffiliation: showAffiliation }),
+            user: req.user,
+            currentPlayerIndex: req.currentPlayerIndex,
+            debug: req.debug
+        }
+    });
 });
 
 // Fetch game data
 app.get('/:id/_api/game', function (req, res, next) {
-    if (req.query.debug) {
+    if (req.debug) {
         res.send(req.game.toObject({ virtuals: true }));
     }
     else {
@@ -501,16 +656,24 @@ app.get('/:id/_api/game', function (req, res, next) {
 });
 
 // Fetch users
-app.get('/:id/_api/users/:userId?', function (req, res, next) {
-    if (req.params.userId === undefined) {
+app.get('/:id/_api/users/:playerIndex?', function (req, res, next) {
+    if (req.params.playerIndex === undefined) {
         res.send(req.game.players);
     }
-    else if (req.game.players[req.params.userId]) {
+    else if (req.game.players[req.params.playerIndex]) {
         // TODO: if self, send affiliation and possibly other teammates
-        res.send(req.game.players[req.params.userId]);
+        res.send(req.game.players[req.params.playerIndex]);
     }
     else {
-        res.send(400);
+        if (!isNaN(req.currentPlayerIndex)) {
+            res.send({
+                player: req.game.players[req.currentPlayerIndex],
+                index: req.currentPlayerIndex
+            });
+        }
+        else {
+            res.send(400);
+        }
     }
 });
 
@@ -544,8 +707,9 @@ app.post('/', function (req, res, next) {
     });
 });
 
-app.get('/impersonate/:id/:userId?', function (req, res, next) {
-    if (req.headers.cookie.indexOf('debug-mafia=1') === -1) {
+// Impersonate another user (debug)
+app.get('/impersonate/:id/:playerIndex?', function (req, res, next) {
+    if (!req.debug) {
         next(new Error('Forbidden'));
     }
     else if (!req.game.isMultiDevice) {
@@ -553,18 +717,23 @@ app.get('/impersonate/:id/:userId?', function (req, res, next) {
     }
     else {
         sendRefresh(req.game.toJSON({ virtuals: true, transform: true, showAffiliation: true}));
-        if (req.params.userId) {
-            for (var i = 0; i < req.game.players.length; i++) {
-                if (req.game.players[i].id === req.params.userId) {
-                    res.cookie('userId', req.game.players[i]._id, { path: '/' + req.game.id });
-                    res.send({ currentPlayerIndex: i });
-                    return;
-                }
+        if (req.params.playerIndex) {
+            if (req.game.players[req.params.playerIndex]) {
+                req.login(req.game.players[req.params.playerIndex].user, function (err) {
+                    if (err) {
+                        return next(err);
+                    }
+                    else {
+                        res.send(req.game.players[req.params.playerIndex].user);
+                    }
+                });
             }
-            next(new Error('User not found'));
+            else {
+                next(new Error('User not found'));
+            }
         }
         else {
-            res.clearCookie('userId', { path: '/' + req.params.id });
+            req.logout();
             res.send();
         }
     }
@@ -573,20 +742,6 @@ app.get('/impersonate/:id/:userId?', function (req, res, next) {
 // Join game
 app.post('/:id/_api/join', function (req, res, next) {
     if (req.game.isMultiDevice) {
-        if (req.body.userId) {
-            var foundUser = false;
-            for (var i = 0; i < req.game.players.length; i++) {
-                if (req.game.players[i].id === req.body.userId) {
-                    res.cookie('userId', req.game.players[i]._id, { path: '/' + req.game.id });
-                    foundUser = true;
-                    break;
-                }
-            }
-            if (!foundUser) {
-                next(new Error('User not found'));
-                return;
-            }
-        }
         res.send(req.game);
     }
     else {
@@ -595,69 +750,63 @@ app.post('/:id/_api/join', function (req, res, next) {
 });
 
 // Add a user
-app.post('/:id/_api/users', function (req, res, next) {
+app.post('/:id/_api/users', ensureAuthenticated, function (req, res, next) {
+    var userId = req.user._id.toString();
+    for (var i = 0; i < req.game.players.length; i++) {
+        if (req.game.players[i].user.id === userId) {
+            next(new Error('Already joined'));
+            return;
+        }
+    }
     req.game.addPlayer({
-        name: req.body.name,
-        isReady: req.body.isReady
+        user: userId
     }, function (err, game) {
         if (err) {
             next(err);
         }
         else {
-            var newPlayer = game.players[game.players.length - 1];
-            res.cookie('userId', newPlayer._id, { path: '/' + game.id });
-            res.send(newPlayer);
+            for (var i = 0; i < game.players.length; i++) {
+                if (game.players[i].user === userId) {
+                    res.send({ playerIndex: i });
+                    return;
+                }
+            }
+            res.send(400);
         }
     });
 });
 
-function validateUser (req, res, next) {
-    if (req.game.players[req.params.userId]) {
-        req.player = req.game.players[req.params.userId];
-        req.playerIndex = req.params.userId;
-    }
-    else {
-        for (var i = 0; i < req.game.players.length; i++) {
-            if (req.game.players[i].id === req.params.userId) {
-                req.player = req.game.players[i];
-                req.playerIndex = i;
-                break;
-            }
+// Remove a user
+app.delete('/:id/_api/users/:playerIndex', ensureAuthenticated, validateUser, function (req, res, next) {
+    req.game.removePlayer(req.params.playerIndex, function (err, game) {
+        if (err) {
+            next(err);
         }
-    }
-    if (!req.player) {
-        next(new Error('Invalid userid'));
-    }
-    else if (!req.cookies['userId'] || !req.player._id.equals(req.cookies['userId'])) {
-        next(new Error('Cannot update someone else'));
-    }
-    else {
-        next();
-    }
-}
+        else {
+            res.send(204);
+        }
+    });
+});
 
 // Update a user
-app.patch('/:id/_api/users/:userId', validateUser, function (req, res, next) {
+app.patch('/:id/_api/users/:playerIndex', ensureAuthenticated, validateUser, function (req, res, next) {
     if (!req.game.isMultiDevice) {
         res.send(400, 'Cannot update users in single-device game');
     }
-    else if (!req.cookies['userId'] || !req.player._id.equals(req.cookies['userId'])) {
-        res.send(400, 'Cannot update someone else');
-    }
     else {
-        req.game.updatePlayer(req.playerIndex, req.body, function (err, game) {
+        req.game.updatePlayer(req.params.playerIndex, req.body, function (err, game) {
             if (err) {
                 next(err);
             }
             else {
-                res.send(game.players[req.playerIndex]);
+                res.send(200);
             }
         });
     }
 });
 
 // Nominate
-app.post('/:id/_api/nominate', function (req, res, next) {
+app.post('/:id/_api/nominate', ensureAuthenticated, function (req, res, next) {
     if (req.currentPlayerIndex !== req.game.leaderIndex) {
         next(new Error('Must be leader to nominate'));
     }
@@ -674,8 +823,8 @@ app.post('/:id/_api/nominate', function (req, res, next) {
 });
 
 // Vote
-app.post('/:id/_api/:userId/vote', validateUser, function (req, res, next) {
-    req.game.vote(req.params.userId, req.body.approve.bool(), function (err, game) {
+app.post('/:id/_api/:playerIndex/vote', ensureAuthenticated, validateUser, function (req, res, next) {
+    req.game.vote(req.params.playerIndex, req.body.approve.bool(), function (err, game) {
         if (err) {
             next(err);
         }
@@ -686,8 +835,8 @@ app.post('/:id/_api/:userId/vote', validateUser, function (req, res, next) {
 });
 
 // Mission
-app.post('/:id/_api/:userId/mission', function (req, res, next) {
-    req.game.mission(req.params.userId, req.body.succeed.bool(), function (err, game) {
+app.post('/:id/_api/:playerIndex/mission', ensureAuthenticated, validateUser, function (req, res, next) {
+    req.game.mission(req.params.playerIndex, req.body.succeed.bool(), function (err, game) {
         if (err) {
             next(err);
         }
@@ -771,3 +920,24 @@ function beginMethod (methodName, args) {
 function sendRefresh(game) {
     io.sockets.in(game.id).emit('refresh', game);
 }
+
+function randomString(len) {
+    var charSet = 'abcdefghijklmnopqrstuvwxyz';
+    var randomString = '';
+    for (var i = 0; i < len; i++) {
+        randomString += charSet.charAt(Math.floor(Math.random() * charSet.length));
+    }
+    return randomString;
+}
+
+String.prototype.bool = function() {
+    if ((/^true$/i).test(this)) {
+        return true;
+    }
+    else if ((/^false$/i).test(this)) {
+        return false;
+    }
+    else {
+        return null;
+    }
+};

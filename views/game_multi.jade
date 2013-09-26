@@ -7,30 +7,31 @@ block scripts
         var data = !{JSON.stringify(data)};
     
 block content
-    h1= title
+    h1
+        a(href="/")= title
+    h1
+        a(href="/" + data.game.id + "/_api/game", target="_blank")= data.game.id
     div#game
-        div(data-bind="visible: phase() === 'init' || !isNaN(currentPlayerIndex())")
+        div
             h2 Current Player
             <!-- ko with: currentPlayer -->
             table
                 tr
                     td Name
-                    td(data-bind="visible: $parent.phase() !== 'init'")
+                    td
                         div(data-bind="text: name")
-                    td(data-bind="visible: $parent.phase() === 'init'")
-                        input#player-name(data-bind="value: name", placeholder="Enter player name")
-                        button(data-bind="click: save") OK
-                tr(data-bind="visible: $parent.phase() !== 'init'")
+                tr(data-bind="visible: $parent.phase() !== 'init' || $parent.debug")
                     td Affiliation
                     td(data-bind="text: affiliationName")
-                tr(data-bind="visible: $parent.phase() === 'init'")
-                    td Ready?
+                tr(data-bind="visible: $parent.phase() === 'init' || $parent.debug")
+                    td Init
                     td
-                        input(type="checkbox", data-bind="checked: isReady")
-                tr(data-bind="visible: $parent.debug")
-                    td Id
-                    td(data-bind="text: id")
-                tr(data-bind="visible: $parent.phase() === 'nominate' && $parent.leaderIndex() === $parent.currentPlayerIndex()")
+                        button(data-bind="click: join") Join
+                        button(data-bind="click: leave") Leave
+                        div(data-bind="visible: playerIndex() !== -1")
+                            input#isReady(type="checkbox", data-bind="checked: isReady, click: save")
+                            label(for="isReady") Ready?
+                tr(data-bind="visible: $parent.isLeader() || $parent.debug")
                     td(data-bind="text: 'Nominate ' + $parent.teamSize()")
                     td
                         <!-- ko foreach: $parent.players -->
@@ -39,27 +40,27 @@ block content
                             label(data-bind="text: name, attr: { for: 'nominate' + $index() }")
                         <!-- /ko -->
                         button(data-bind="click: $parent.submitNominees") OK
-                tr(data-bind="visible: $parent.phase() === 'vote'")
+                tr(data-bind="visible: $parent.phase() === 'vote' || $parent.debug")
                     td Vote
                     td
-                        input#approveVote.toggle-button(type="checkbox", data-bind="checked: hasVoted() && voteApprove(), click: vote.bind($data, true)")
+                        input#approveVote.toggle-button(type="checkbox", data-bind="checked: voteApproved(), click: vote.bind($data, true)")
                         label(for="approveVote") Approve
-                        input#rejectVote.toggle-button(type="checkbox", data-bind="checked: hasVoted() && !voteApprove(), click: vote.bind($data, false)")
+                        input#rejectVote.toggle-button(type="checkbox", data-bind="checked: voteRejected(), click: vote.bind($data, false)")
                         label(for="rejectVote") Reject
                     td(data-bind="text: voteApprove")
-                tr(data-bind="visible: $parent.phase() === 'mission' && nominee()")
+                tr(data-bind="visible: ($parent.phase() === 'mission' && nominee()) || $parent.debug")
                     td Mission
                     td
-                        input#succeedMission.toggle-button(type="checkbox", data-bind="checked: hasMissioned() && missionSuccess(), click: mission.bind($data, true)")
+                        input#succeedMission.toggle-button(type="checkbox", data-bind="checked: missionSucceeded(), click: mission.bind($data, true)")
                         label(for="succeedMission") Succeed
-                        input#failMission.toggle-button(type="checkbox", data-bind="checked: hasMissioned() && !missionSuccess(), click: mission.bind($data, false)")
+                        input#failMission.toggle-button(type="checkbox", data-bind="checked: missionFailed(), click: mission.bind($data, false)")
                         label(for="failMission") Fail
                     td(data-bind="text: missionSuccess")
             <!-- /ko -->
-        div(data-bind="visible: phase() !== 'init'")
+        div(data-bind="visible: phase() !== 'init' || debug")
             h2 Game
             table
-                tr(data-bind="visible: hasTeamMates")
+                tr(data-bind="visible: hasTeamMates || debug")
                     td Teammates
                     td
                         <!-- ko foreach: teamMates -->
@@ -80,13 +81,13 @@ block content
                 tr
                     td Team Size
                     td(data-bind="text: teamSize")
-                tr
+                tr(data-bind="visible: phase() !== 'nominate' || debug")
                     td Candidates
                     td
                         <!-- ko foreach: candidates -->
                         div(data-bind="text: name")
                         <!-- /ko -->
-        div(data-bind="visible: phase() !== 'final'")
+        div(data-bind="visible: phase() !== 'final' || debug")
             h2 Players
             <!-- ko foreach: players -->
             div(data-bind="text: name() + ($index() === $parent.leaderIndex() ? ' *' : '') + ($parent.phase() === 'init' && isReady() ? ' (ready)' : '')")
@@ -99,7 +100,7 @@ block content
                     th Impersonate
                     th Id
                     th Name
-                    th isReady
+                    th Actions
                     th Vote
                     th Mission
                 <!-- ko foreach: players -->
@@ -107,11 +108,13 @@ block content
                     td
                         button(data-bind="click: impersonate") impersonate
                     td(data-bind="text: id")
+                    td(data-bind="text: name")
                     td
-                        input(data-bind="value: name", placeholder="Enter player name")
-                    td
-                        input(type="checkbox", data-bind="checked: isReady")
-                        button(data-bind="click: save") OK
+                        input(type="checkbox", data-bind="checked: isReady, attr: { id: 'isReady' + $index() }")
+                        label(data-bind="attr: { for: 'isReady' + $index() }") Ready?
+                        button(data-bind="click: save") Save
+                        button(data-bind="click: join") Join
+                        button(data-bind="click: leave") Leave
                     td
                         button(data-bind="click: vote.bind($data, true)") Approve
                         button(data-bind="click: vote.bind($data, false)") Reject
@@ -119,7 +122,7 @@ block content
                         button(data-bind="click: mission.bind($data, true)") Succeed
                         button(data-bind="click: mission.bind($data, false)") Fail
                 <!-- /ko -->
-        div(data-bind="visible: phase () !== 'init'")
+        div(data-bind="visible: phase () !== 'init' || debug")
             h2 History
             <!-- ko foreach: rounds -->
             h3
@@ -141,17 +144,17 @@ block content
                     td Leader
                     td(data-bind="text: leader().name")
                 tr
-                    td Approve
-                    td(data-bind="text: voteCounts().approveCount")
-                tr
-                    td Reject
-                    td(data-bind="text: voteCounts().rejectCount")
-                tr
                     td Team
                     td
                         <!-- ko foreach: teamMembers -->
                         div(data-bind="text: name")
                         <!-- /ko -->
+                tr
+                    td Approve
+                    td(data-bind="text: voteCounts().approveCount")
+                tr
+                    td Reject
+                    td(data-bind="text: voteCounts().rejectCount")
                 tr
                     td Votes
                     td
