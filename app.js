@@ -185,13 +185,6 @@ app.get('/login', function (req, res) {
     });
 });
 
-app.get('/test', function (req, res) {
-    User.find(null, function (err, users) {
-        console.log(arguments);
-        res.send(users);
-    });
-});
-
 var userSchema = new Schema({
     facebookId: {
         type: String
@@ -517,7 +510,7 @@ gameSchema.methods._evaluateVote = function (cb) {
 			}
             
             for (var i = 0; i < this.players.length; i++) {
-                this.players[i].nominee = undefined;
+                this.players[i].nominee = false;
             }
 		}
 		
@@ -588,7 +581,7 @@ gameSchema.methods._evaluateMission = function (cb) {
 		}
 		
         for (var i = 0; i < this.players.length; i++) {
-            this.players[i].nominee = undefined;
+            this.players[i].nominee = false;
             this.players[i].missionSuccess = undefined;
         }
 	}
@@ -635,7 +628,7 @@ app.get('/:id', ensureAuthenticated, clearReferer, function (req, res, next) {
     var showAffiliation = req.game.players[req.currentPlayerIndex] && req.game.players[req.currentPlayerIndex].affiliation === AFFILIATION.Mafia;
     console.log('currentPlayerIndex' + req.currentPlayerIndex);
     res.render('game_multi', {
-        title: 'Play (multi-device)',
+        title: 'Play',
         data: {
             game: req.game.toJSON({ virtuals: true, transform: true, showAffiliation: showAffiliation }),
             user: req.user,
@@ -651,7 +644,9 @@ app.get('/:id/_api/game', function (req, res, next) {
         res.send(req.game.toObject({ virtuals: true }));
     }
     else {
-        res.send(req.game);
+        var showAffiliation = req.game.players[req.currentPlayerIndex] && req.game.players[req.currentPlayerIndex].affiliation === AFFILIATION.Mafia;
+        console.log('showAffiliation: ' + showAffiliation);
+        res.send(req.game.toJSON({ transform: true, showAffiliation: showAffiliation }));
     }
 });
 
@@ -661,15 +656,12 @@ app.get('/:id/_api/users/:playerIndex?', function (req, res, next) {
         res.send(req.game.players);
     }
     else if (req.game.players[req.params.playerIndex]) {
-        // TODO: if self, send affiliation and possibly other teammates
         res.send(req.game.players[req.params.playerIndex]);
     }
     else {
         if (!isNaN(req.currentPlayerIndex)) {
-            res.send({
-                player: req.game.players[req.currentPlayerIndex],
-                index: req.currentPlayerIndex
-            });
+            console.log(req.game.players[req.currentPlayerIndex].toJSON({ virtuals: true, transform: true, showAffiliation: true}));
+            res.send(req.game.players[req.currentPlayerIndex].toJSON({ virtuals: true, transform: true, showAffiliation: true}));
         }
         else {
             res.send(400);
@@ -716,7 +708,6 @@ app.get('/impersonate/:id/:playerIndex?', function (req, res, next) {
         next(new Error('Cannot join single-device game'));
     }
     else {
-        sendRefresh(req.game.toJSON({ virtuals: true, transform: true, showAffiliation: true}));
         if (req.params.playerIndex) {
             if (req.game.players[req.params.playerIndex]) {
                 req.login(req.game.players[req.params.playerIndex].user, function (err) {
@@ -799,6 +790,9 @@ app.patch('/:id/_api/users/:playerIndex', ensureAuthenticated, validateUser, fun
                 next(err);
             }
             else {
+                if (game.isReady) {
+                    io.sockets.in(game.id).emit('start');
+                }
                 res.send(200);
             }
         });

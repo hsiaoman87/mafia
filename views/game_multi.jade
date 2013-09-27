@@ -9,8 +9,10 @@ block scripts
 block content
     h1
         a(href="/")= title
-    h1
-        a(href="/" + data.game.id + "/_api/game", target="_blank")= data.game.id
+        if req.debug
+            a(href="/" + data.game.id + "/_api/game", target="_blank")= data.game.id
+        else
+            span= data.game.id
     div#game
         div
             h2 Current Player
