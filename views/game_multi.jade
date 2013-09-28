@@ -20,36 +20,37 @@ block content
             div(data-bind="visible: $parent.phase() === 'init'")
                 button(data-bind="visible: playerIndex() === -1, click: join") Join
                 div(data-bind="visible: playerIndex() !== -1")
+                    button(data-bind="click: leave") Leave
                     input#isReady(type="checkbox", data-bind="checked: isReady, click: save")
                     label(for="isReady") Is everybody ready?
-                button(data-bind="visible: playerIndex() !== -1, click: leave") Leave
-            div(data-bind="visible: $parent.phase() !== 'init'")
+            div(data-bind="visible: $parent.phase() !== 'init'", style="margin-bottom: 20px;")
                 a(href="#", data-bind="click: displayAffiliation") Show Affiliation
             div(data-bind="visible: $parent.phase() !== 'final'")
-                div(data-bind="visible: $parent.failuresNeeded() == 2") Note: you need 2 failures this round to fail the mission
+                div(data-bind="visible: $parent.failuresNeeded() == 2", style="margin-bottom: 10px;") Note: you need 2 failures this round to fail the mission
             div(data-bind="visible: $parent.phase() === 'nominate'")
                 div(data-bind="visible: $parent.isLeader")
-                    div(data-bind="text: 'Choose ' + $parent.teamSize() + ' team members:'")
+                    div(data-bind="text: 'Choose ' + $parent.teamSize() + ' team members:'", style="margin-bottom: 10px;")
                     <!-- ko foreach: $parent.players -->
                     div
                         input(type="checkbox", data-bind="checked: isSelected, attr: { id: 'nominate' + $index() }")
                         label(data-bind="text: name, attr: { for: 'nominate' + $index() }")
                     <!-- /ko -->
-                    button(data-bind="click: $parent.submitNominees") OK
+                    button(data-bind="click: $parent.submitNominees", style="margin-top: 10px;") OK
                 div(data-bind="if: $parent.currentLeader, visible: !$parent.isLeader()")
                     div(data-bind="text: 'Waiting for ' + $parent.currentLeader().name() + ' to choose ' + $parent.teamSize() + ' team members...'")
             div(data-bind="visible: $parent.phase() === 'vote'")
-                div Approve or reject the following team:
+                div(style="margin-bottom: 10px;") Approve or reject the following team:
                 <!-- ko foreach: $parent.candidates -->
                 div(data-bind="text: name")
                 <!-- /ko -->
-                input#approveVote.toggle-button(type="checkbox", data-bind="checked: voteApproved(), click: vote.bind($data, true)")
-                label(for="approveVote") Approve
-                input#rejectVote.toggle-button(type="checkbox", data-bind="checked: voteRejected(), click: vote.bind($data, false)")
-                label(for="rejectVote") Reject
+                div(style="margin-top: 10px;")
+                    input#approveVote.toggle-button(type="checkbox", data-bind="checked: voteApproved(), click: vote.bind($data, true)")
+                    label(for="approveVote") Approve
+                    input#rejectVote.toggle-button(type="checkbox", data-bind="checked: voteRejected(), click: vote.bind($data, false)")
+                    label(for="rejectVote") Reject
             div(data-bind="visible: $parent.phase() === 'mission'")
                 div(data-bind="visible: nominee")
-                    div Choose an outcome for the mission:
+                    div(style="margin-bottom: 10px;") Choose an outcome for the mission:
                     input#succeedMission.toggle-button(type="checkbox", data-bind="checked: missionSucceeded(), click: mission.bind($data, true)")
                     label(for="succeedMission") Succeed
                     input#failMission.toggle-button(type="checkbox", data-bind="checked: missionFailed(), click: mission.bind($data, false)")
@@ -57,10 +58,10 @@ block content
                 div(data-bind="visible: !nominee()")
                     div Waiting for the team go on the mission...
             div(data-bind="visible: $parent.phase() === 'final'")
-                div Game Over
+                div(style="margin-bottom: 10px;") Game Over
                 div(data-bind="visible: playerIndex() !== -1 && affiliation() === $parent.winningAffiliation()") You win!
                 div(data-bind="visible: playerIndex() !== -1 && affiliation() !== $parent.winningAffiliation()") You lose!
-                div Mafia:
+                div(style="margin-top: 20px; margin-bottom: 10px;") Mafia:
                 <!-- ko foreach: $parent.mafiaPlayers -->
                 div(data-bind="text: name")
                 <!-- /ko -->
