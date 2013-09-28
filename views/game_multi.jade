@@ -7,33 +7,97 @@ block scripts
         var data = !{JSON.stringify(data)};
     
 block content
+    div
+        a(href="/") Back
     h1
-        a(href="/")= title
         if req.debug
             a(href="/" + data.game.id + "/_api/game", target="_blank")= data.game.id
         else
             span= data.game.id
     div#game
+        <!-- ko with: currentPlayer -->
         div
+            div(data-bind="visible: $parent.phase() === 'init'")
+                button(data-bind="visible: playerIndex() === -1, click: join") Join
+                div(data-bind="visible: playerIndex() !== -1")
+                    input#isReady(type="checkbox", data-bind="checked: isReady, click: save")
+                    label(for="isReady") Is everybody ready?
+                button(data-bind="visible: playerIndex() !== -1, click: leave") Leave
+            div(data-bind="visible: $parent.phase() !== 'init'")
+                a(href="#", data-bind="click: displayAffiliation") Show Affiliation
+            div(data-bind="visible: $parent.phase() !== 'final'")
+                div(data-bind="visible: $parent.failuresNeeded() == 2") Note: you need 2 failures this round to fail the mission
+            div(data-bind="visible: $parent.phase() === 'nominate'")
+                div(data-bind="visible: $parent.isLeader")
+                    div(data-bind="text: 'Choose ' + $parent.teamSize() + ' team members:'")
+                    <!-- ko foreach: $parent.players -->
+                    div
+                        input(type="checkbox", data-bind="checked: isSelected, attr: { id: 'nominate' + $index() }")
+                        label(data-bind="text: name, attr: { for: 'nominate' + $index() }")
+                    <!-- /ko -->
+                    button(data-bind="click: $parent.submitNominees") OK
+                div(data-bind="if: $parent.currentLeader, visible: !$parent.isLeader()")
+                    div(data-bind="text: 'Waiting for ' + $parent.currentLeader().name() + ' to choose ' + $parent.teamSize() + ' team members...'")
+            div(data-bind="visible: $parent.phase() === 'vote'")
+                div Approve or reject the following team:
+                <!-- ko foreach: $parent.candidates -->
+                div(data-bind="text: name")
+                <!-- /ko -->
+                input#approveVote.toggle-button(type="checkbox", data-bind="checked: voteApproved(), click: vote.bind($data, true)")
+                label(for="approveVote") Approve
+                input#rejectVote.toggle-button(type="checkbox", data-bind="checked: voteRejected(), click: vote.bind($data, false)")
+                label(for="rejectVote") Reject
+            div(data-bind="visible: $parent.phase() === 'mission'")
+                div(data-bind="visible: nominee")
+                    div Choose an outcome for the mission:
+                    input#succeedMission.toggle-button(type="checkbox", data-bind="checked: missionSucceeded(), click: mission.bind($data, true)")
+                    label(for="succeedMission") Succeed
+                    input#failMission.toggle-button(type="checkbox", data-bind="checked: missionFailed(), click: mission.bind($data, false)")
+                    label(for="failMission") Sabotage
+                div(data-bind="visible: !nominee()")
+                    div Waiting for the team go on the mission...
+            div(data-bind="visible: $parent.phase() === 'final'")
+                div Game Over
+                div(data-bind="visible: playerIndex() !== -1 && affiliation() === $parent.winningAffiliation()") You win!
+                div(data-bind="visible: playerIndex() !== -1 && affiliation() !== $parent.winningAffiliation()") You lose!
+                div Mafia:
+                <!-- ko foreach: $parent.mafiaPlayers -->
+                div(data-bind="text: name")
+                <!-- /ko -->
+        <!-- /ko -->
+        h2(data-bind="visible: scores().length") Score
+        div(data-bind="foreach: scores")
+            div(data-bind="text: $data")
+        
+        h2(data-bind="visible: players().length") Players
+        <!-- ko foreach: players -->
+        div
+            span(data-bind="text: name")
+            span(data-bind="visible: $index() === $parent.leaderIndex()") (leader)
+            span(data-bind="visible: $parent.phase() === 'init' && isReady()") (ready)
+            span(data-bind="visible: hasVoted") (voted)
+            span(data-bind="visible: hasMissioned") (missioned)
+        <!-- /ko -->
+        <!-- ko with: currentPlayer -->
+        div(data-bind="visible: $parent.debug")
             h2 Current Player
-            <!-- ko with: currentPlayer -->
             table
                 tr
                     td Name
                     td
                         div(data-bind="text: name")
-                tr(data-bind="visible: $parent.phase() !== 'init' || $parent.debug")
+                tr
                     td Affiliation
                     td(data-bind="text: affiliationName")
-                tr(data-bind="visible: $parent.phase() === 'init' || $parent.debug")
+                tr
                     td Init
                     td
                         button(data-bind="click: join") Join
                         button(data-bind="click: leave") Leave
-                        div(data-bind="visible: playerIndex() !== -1")
+                        div
                             input#isReady(type="checkbox", data-bind="checked: isReady, click: save")
                             label(for="isReady") Ready?
-                tr(data-bind="visible: $parent.isLeader() || $parent.debug")
+                tr
                     td(data-bind="text: 'Nominate ' + $parent.teamSize()")
                     td
                         <!-- ko foreach: $parent.players -->
@@ -42,7 +106,7 @@ block content
                             label(data-bind="text: name, attr: { for: 'nominate' + $index() }")
                         <!-- /ko -->
                         button(data-bind="click: $parent.submitNominees") OK
-                tr(data-bind="visible: $parent.phase() === 'vote' || $parent.debug")
+                tr
                     td Vote
                     td
                         input#approveVote.toggle-button(type="checkbox", data-bind="checked: voteApproved(), click: vote.bind($data, true)")
@@ -50,7 +114,7 @@ block content
                         input#rejectVote.toggle-button(type="checkbox", data-bind="checked: voteRejected(), click: vote.bind($data, false)")
                         label(for="rejectVote") Reject
                     td(data-bind="text: voteApprove")
-                tr(data-bind="visible: ($parent.phase() === 'mission' && nominee()) || $parent.debug")
+                tr
                     td Mission
                     td
                         input#succeedMission.toggle-button(type="checkbox", data-bind="checked: missionSucceeded(), click: mission.bind($data, true)")
@@ -58,14 +122,14 @@ block content
                         input#failMission.toggle-button(type="checkbox", data-bind="checked: missionFailed(), click: mission.bind($data, false)")
                         label(for="failMission") Fail
                     td(data-bind="text: missionSuccess")
-            <!-- /ko -->
-        div(data-bind="visible: phase() !== 'init' || debug")
+        <!-- /ko -->
+        div(data-bind="visible: debug")
             h2 Game
             table
-                tr(data-bind="visible: hasTeamMates || debug")
-                    td Teammates
+                tr
+                    td Mafia
                     td
-                        <!-- ko foreach: teamMates -->
+                        <!-- ko foreach: mafiaPlayers -->
                         div(data-bind="text: name")
                         <!-- /ko -->
                 tr
@@ -89,8 +153,7 @@ block content
                         <!-- ko foreach: candidates -->
                         div(data-bind="text: name")
                         <!-- /ko -->
-        div(data-bind="visible: phase() !== 'final' || debug")
-            h2 Players
+            h2(data-bind="visible: players().length") Players
             <!-- ko foreach: players -->
             div
                 span(data-bind="text: name")
@@ -99,7 +162,6 @@ block content
                 span(data-bind="visible: hasVoted") (voted)
                 span(data-bind="visible: hasMissioned") (missioned)
             <!-- /ko -->
-        div(data-bind="visible: debug")
             h2 Impersonate
             button(data-bind="click: unimpersonate") unimpersonate
             table
@@ -129,7 +191,6 @@ block content
                         button(data-bind="click: mission.bind($data, true)") Succeed
                         button(data-bind="click: mission.bind($data, false)") Fail
                 <!-- /ko -->
-        div(data-bind="visible: phase () !== 'init' || debug")
             h2 History
             <!-- ko foreach: rounds -->
             h3

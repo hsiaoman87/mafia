@@ -88,10 +88,10 @@ $(function () {
         }, this);
         
         self.getAffiliation = function () {
-            $.get('/' + self.id + '/_api/game', null, function (player) {
+            $.get('/' + self.id + '/_api/game', null, function (game) {
                 console.log('getAffiliation');
-                console.log(player);
-                ko.mapping.fromJS(player, self);
+                console.log(game);
+                ko.mapping.fromJS(game, self);
             });
         }
         
@@ -114,21 +114,6 @@ $(function () {
             return $.grep(self.players(), function (player) {
                 return player.user.id() === self.user()._id();
             })[0] || self.user();
-        });
-        
-        self.hasTeamMates = ko.computed(function () {
-            if (self.currentPlayer()) {
-                return self.currentPlayer().affiliation() === AFFILIATION.Mafia;
-            }
-            else {
-                return false;
-            }
-        });
-        
-        self.teamMates = ko.computed(function () {
-            return $.grep(self.players(), function (player) {
-                return player.affiliation() === AFFILIATION.Mafia;
-            });
         });
         
         self.teamSize = ko.computed(function () {
@@ -179,6 +164,15 @@ $(function () {
             });
         }
         
+        self.failuresNeeded = ko.computed(function () {
+            if (self.phase() != PHASE.Init) {
+                return gameData[self.players().length].failuresNeeded[self.currentRound()];
+            }
+            else {
+                return null;
+            }
+        });
+        
         self.unimpersonate = function () {
             $.ajax({
                 url: '/impersonate/' + self.id,
@@ -188,6 +182,34 @@ $(function () {
                 global: false
             });
         }
+        
+        self.mafiaPlayers = ko.computed(function () {
+            return $.grep(self.players(), function (player) {
+                return player.affiliation() === AFFILIATION.Mafia;
+            });
+        });
+        
+        self.winningAffiliation = ko.computed(function () {
+            var successfulMissions = 0;
+            var failedMissions = 0;
+            $.each(self.rounds(), function (index, round) {
+                if (round.result) {
+                    successfulMissions++;
+                }
+                else {
+                    failedMissions++;
+                }
+            });
+            if (successfulMissions === 3) {
+                return AFFILIATION.Townsperson;
+            }
+            else if (failedMissions === 3) {
+                return AFFILIATION.Mafia;
+            }
+            else {
+                return null;
+            }
+        });
     }
     
     //$('.toggle-button').button();
@@ -312,6 +334,20 @@ $(function () {
                 },
                 global: false
             });
+        }
+        
+        self.displayAffiliation = function () {
+            var message;
+            if (self.affiliation() === AFFILIATION.Mafia) {
+                message = 'You are mafia.  Here are your teammates:\n';
+                $.each(gameModel.mafiaPlayers(), function (index, player) {
+                    message += '\n' + player.name();
+                });
+            }
+            else {
+                message = 'You are a townsperson.  There are ' + gameData[gameModel.players().length].mafiaCount + ' mafia in the game.';
+            }
+            alert(message);
         }
         
         self.vote = function (approve) {

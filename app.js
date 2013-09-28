@@ -291,35 +291,32 @@ var gameSchema = new Schema({
 });
 
 gameSchema.pre('save', function (next) {
-    if (this.isNew) {
-        if (this.isMultiDevice) {
-            if (this.players && this.players.length) {
-                next(new Error('Cannot set players for multi-device'));
-                return;
-            }
-        }
-        else {
-            if (this.players.length < 5) {
-                next(new Error('Not enough players'));
-                return;
-            }
-            else if (this.players.length > 10) {
-                next(new Error('Too many players'));
-                return;
-            }
-            else {
+    if (this.players && this.players.length > 10) {
+        next(new Error('Too many players'));
+    }
+    else if (this.isMultiDevice && this.isNew && this.players && this.players.length) {
+        next(new Error('Cannot set players for multi-device'));
+    }
+    else if (!this.isMultiDevice && this.isNew && this.players && this.players.length < 5) {
+        next(new Error('Not enough players'));
+    }
+    else {
+        if (this.isNew) {
+            if (!this.isMultiDevice) {
                 this.initialize();
             }
+            
+            this.id = randomString(6);
         }
-        this.id = randomString(6);
+        
+        next();
     }
-    next();
 });
 
 gameSchema.post('save', function (game) {
     Game.findOne({ id: this.id }).populate('players.user').exec(function (err, game) {
         console.log('saving');
-        sendRefresh(game.toJSON({ virtuals: true, transform: true }));
+        sendRefresh(game.toJSON({ virtuals: true, transform: true, showAffiliation: game.phase === PHASE.Final }));
     });
 });
 
@@ -643,7 +640,8 @@ app.get('/', clearReferer, function (req, res) {
 
 // View game
 app.get('/:id', ensureAuthenticated, clearReferer, function (req, res, next) {
-    var showAffiliation = req.game.players[req.currentPlayerIndex] && req.game.players[req.currentPlayerIndex].affiliation === AFFILIATION.Mafia;
+    var showAffiliation = req.game.phase === PHASE.Final ||
+        (req.game.players[req.currentPlayerIndex] && req.game.players[req.currentPlayerIndex].affiliation === AFFILIATION.Mafia);
     console.log('currentPlayerIndex' + req.currentPlayerIndex);
     res.render('game_multi', {
         title: 'Play',
@@ -662,7 +660,8 @@ app.get('/:id/_api/game', function (req, res, next) {
         res.send(req.game.toObject({ virtuals: true }));
     }
     else {
-        var showAffiliation = req.game.players[req.currentPlayerIndex] && req.game.players[req.currentPlayerIndex].affiliation === AFFILIATION.Mafia;
+        var showAffiliation = req.game.phase === PHASE.Final ||
+            (req.game.players[req.currentPlayerIndex] && req.game.players[req.currentPlayerIndex].affiliation === AFFILIATION.Mafia);
         console.log('showAffiliation: ' + showAffiliation);
         res.send(req.game.toJSON({ virtuals: true, transform: true, showAffiliation: showAffiliation }));
     }
@@ -721,9 +720,6 @@ app.post('/', function (req, res, next) {
 app.get('/impersonate/:id/:playerIndex?', function (req, res, next) {
     if (!req.debug) {
         next(new Error('Forbidden'));
-    }
-    else if (!req.game.isMultiDevice) {
-        next(new Error('Cannot join single-device game'));
     }
     else {
         if (req.params.playerIndex) {

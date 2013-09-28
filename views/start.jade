@@ -6,11 +6,11 @@ block scripts
 
 block content
     h1= title
-    h3 Create
-    button(data-bind="click: startSingle") Start
-    h3 Join
+    h3 New Game
+    button(data-bind="click: startSingle") Create
+    h3 Join Game
     input(data-bind="value: joinGameId, valueUpdate: 'afterkeypress', event: { keypress: onKeyPress }", placeholder="Enter game code")
-    button(data-bind="click: join") Go
+    button(data-bind="click: join") Join
     div(data-bind="visible: false")
         h2 Single Device
         div(data-bind="foreach: players")
