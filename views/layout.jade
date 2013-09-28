@@ -18,11 +18,12 @@ html
             script(src='/js/jquery-ui-1.10.3.custom.min.js')
             script(src='/scripts/knockout-2.2.1.js')
             script(src='/scripts/knockout.mapping-latest.js')
+        script(src='/scripts/common.js')
         block scripts
     body
         div
             if req.user
-                span= req.user.name
+                a#user-name(href="#")= req.user.name
                 a(href="/logout") Logout
             else
                 a(href="/login") Login

@@ -185,6 +185,24 @@ app.get('/login', function (req, res) {
     });
 });
 
+app.post('/edit', ensureAuthenticated, function (req, res, next) {
+    if (req.body.name && req.body.name.trim()) {
+        User.findByIdAndUpdate(req.user._id, {
+            name: req.body.name.trim()
+        }, function (err, user) {
+            if (err) {
+                next(err);
+            }
+            else {
+                res.send(200);
+            }
+        });
+    }
+    else {
+        res.send(400);
+    }
+});
+
 var userSchema = new Schema({
     facebookId: {
         type: String
@@ -593,7 +611,7 @@ var Game = mongoose.model('Game', gameSchema);
 
 app.param('id', function (req, res, next, id) {
     Game.findOne({
-        id: { $regex: new RegExp(id, 'i') }
+        id: { $regex: new RegExp('^' + id + '$', 'i') }
     }).populate('players.user').exec(function (err, game) {
         if (err) {
             next(err);
@@ -646,7 +664,7 @@ app.get('/:id/_api/game', function (req, res, next) {
     else {
         var showAffiliation = req.game.players[req.currentPlayerIndex] && req.game.players[req.currentPlayerIndex].affiliation === AFFILIATION.Mafia;
         console.log('showAffiliation: ' + showAffiliation);
-        res.send(req.game.toJSON({ transform: true, showAffiliation: showAffiliation }));
+        res.send(req.game.toJSON({ virtuals: true, transform: true, showAffiliation: showAffiliation }));
     }
 });
 

@@ -3,7 +3,7 @@ $(function () {
         var self = this;
         self.players = ko.observableArray();
         
-        self.joinGameId = '';
+        self.joinGameId = ko.observable();
         
         self.startSingle = function () {
             $.post('/', {
@@ -24,9 +24,12 @@ $(function () {
         }
         
         self.join = function () {
-            $.post(self.joinGameId + '/_api/join', null,
+            $.post(self.joinGameId() + '/_api/join', null,
             function (game) {
                 location.href = '/' + game.id;
+            })
+            .fail(function (error) {
+                alert('Invalid game id');
             });
         }
         
@@ -39,7 +42,7 @@ $(function () {
         
         self.onKeyPress = function (model, e) {
             if (e.keyCode === $.ui.keyCode.ENTER) {
-                self.addPlayer();
+                self.join();
             }
             return true;
         }

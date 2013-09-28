@@ -3,8 +3,7 @@ $(function () {
         var self = this;
         
         self.createGuest = function () {
-            var guestName = $.trim(prompt('Enter your name'));
-            console.log(guestName.trim());
+            var guestName = $.trim(prompt('Enter your name', 'Guest'));
             if (guestName) {
                 $.post('/auth/guest', {
                     name: guestName

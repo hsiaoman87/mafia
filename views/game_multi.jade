@@ -92,7 +92,12 @@ block content
         div(data-bind="visible: phase() !== 'final' || debug")
             h2 Players
             <!-- ko foreach: players -->
-            div(data-bind="text: name() + ($index() === $parent.leaderIndex() ? ' *' : '') + ($parent.phase() === 'init' && isReady() ? ' (ready)' : '')")
+            div
+                span(data-bind="text: name")
+                span(data-bind="visible: $index() === $parent.leaderIndex()") (leader)
+                span(data-bind="visible: $parent.phase() === 'init' && isReady()") (ready)
+                span(data-bind="visible: hasVoted") (voted)
+                span(data-bind="visible: hasMissioned") (missioned)
             <!-- /ko -->
         div(data-bind="visible: debug")
             h2 Impersonate
