@@ -1,6 +1,7 @@
 extends layout
 
 block scripts
+    link(rel='stylesheet', href='/styles/game.css')
     script(src='/socket.io/socket.io.js')
     script(src='/scripts/game_multi.js')
     script.
@@ -68,7 +69,7 @@ block content
         <!-- /ko -->
         h2(data-bind="visible: scores().length") Score
         div(data-bind="foreach: scores")
-            div(data-bind="text: $data")
+            img.score(data-bind="attr: { src: $data ? '/images/ok.png' : '/images/cancel.png' }")
         
         h2(data-bind="visible: players().length") Players
         <!-- ko foreach: players -->

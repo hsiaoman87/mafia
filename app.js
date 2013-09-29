@@ -336,12 +336,12 @@ gameSchema.virtual('isReady').get(function () {
 gameSchema.methods.addPlayer = function (player, cb) {
     beginMethod('addPlayer(player, cb)', arguments);
     
-	if (this.phase === PHASE.Init) {
+    if (this.phase !== PHASE.Init) {
+        cb(new Error('Cannot add player because game has already started'));
+    }
+	else {
         this.players.push(player);
         this.save(cb);
-    }
-    else {
-        cb(new Error('Cannot add player because game has already started'));
     }
 }
 
@@ -349,7 +349,7 @@ gameSchema.methods.removePlayer = function (playerIndex, cb) {
     beginMethod('removePlayer(playerIndex, cb)', arguments);
     
     if (this.phase !== PHASE.Init) {
-        cb(new Error('Cannot add player because game has already started'));
+        cb(new Error('Cannot remove player because game has already started'));
     }
     else if (!this.players[playerIndex]) {
         console.log(this.players);

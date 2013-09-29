@@ -1,4 +1,15 @@
 $(function () {
+    ko.subscribable.fn.subscribeChanged = function (callback) {
+        var oldValue;
+        this.subscribe(function (_oldValue) {
+            oldValue = _oldValue;
+        }, this, 'beforeChange');
+        
+        this.subscribe(function (newValue) {
+            callback(newValue, oldValue);
+        });
+    };
+    
     $(document).ajaxError(function (e, jqXHR) {
         if (jqXHR.responseText) {
             alert(jqXHR.responseText);
@@ -83,15 +94,22 @@ $(function () {
             rounds: {
                 create: function (options) {
                     return new Round(options.data, self);
+                },
+                key: function (data) {
+                    return ko.utils.unwrapObservable(data.id);
                 }
             }
         }, this);
         
-        self.getAffiliation = function () {
+        self.getAffiliation = function (callback) {
             $.get('/' + self.id + '/_api/game', null, function (game) {
                 console.log('getAffiliation');
                 console.log(game);
                 ko.mapping.fromJS(game, self);
+                
+                if ($.isFunction(callback)) {
+                    callback(game);
+                }
             });
         }
         
@@ -105,7 +123,9 @@ $(function () {
             ko.mapping.fromJS(game, self);
         });
         self.socket.on('start', function () {
-            self.getAffiliation();
+            self.getAffiliation(function () {
+                self.currentPlayer().displayAffiliation();
+            });
         });
         
         self.user = ko.observable(new Player(data.user, self));
@@ -134,8 +154,48 @@ $(function () {
         self.scores = ko.computed(function () {
             return $.map(self.rounds(), function (round) {
                 var result = round.result();
-                return isNaN(result) ? null : result ? 'success' : 'fail';
+                return isNaN(result) ? null : result;
             });
+        });
+        
+        self.displayVoteResults = function () {
+            var currentHistory = self.rounds()[self.currentRound()].history();
+            var playerIterations = currentHistory[currentHistory.length - 1].playerIterations();
+            
+            var approvals = [];
+            var rejections = [];
+            
+            $.each(playerIterations, function (index, playerIteration) {
+                if (playerIteration.voteDecision()) {
+                    approvals.push(playerIteration);
+                }
+                else {
+                    rejections.push(playerIteration);
+                }
+            });
+            
+            var message = approvals.length > rejections.length ? 'Vote approved!' : 'Vote rejected!';
+            
+            if (approvals.length) {
+                message += '\n\nApproved by:';
+                $.each(approvals, function (index, approval) {
+                    message += '\n' + approval.name();
+                });
+            }
+            if (rejections.length) {
+                message += '\n\nRejected by:';
+                $.each(rejections, function (index, rejection) {
+                    message += '\n' + rejection.name();
+                });
+            }
+            
+            alert(message);
+        }
+        
+        self.rounds.subscribeChanged(function (newRounds, oldRounds) {
+            if (newRounds.length !== oldRounds.length) {
+                self.displayVoteResults();
+            }
         });
         
         self.currentLeader = ko.computed(function () {
@@ -143,7 +203,7 @@ $(function () {
         });
         
         self.isLeader = ko.computed(function () {
-            return self.phase() === 'nominate' && self.currentLeader() === self.currentPlayer();
+            return self.currentLeader() === self.currentPlayer();
         });
         
         self.submitNominees = function () {
@@ -213,6 +273,7 @@ $(function () {
     }
     
     //$('.toggle-button').button();
+    $('button').button();
     
     function Round(data, game) {
         var self = this;
@@ -222,14 +283,40 @@ $(function () {
             history: {
                 create: function (options) {
                     return new HistoryEntry(options.data, game);
+                },
+                key: function (data) {
+                    return ko.utils.unwrapObservable(data.id);
                 }
             }
         }, this);
+        
+        self.result.subscribe(function (result) {
+            if (result) {
+                alert('Mission succeeded!');
+            }
+            else {
+                if (self.failCount() > 1) {
+                    alert('Mission failed with ' + self.failCount() + ' saboteurs!');
+                }
+                else {
+                    alert('Mission failed with one saboteur!')
+                }
+            }
+        });
+        
+        self.history.subscribeChanged(function (newHistory, oldHistory) {
+            if (newHistory.length !== oldHistory.length) {
+                gameModel.displayVoteResults();
+            }
+        });
     }
     
     function HistoryEntry(data, game) {
         var self = this;
         ko.mapping.fromJS(data, {
+            key: function (data) {
+                return ko.utils.unwrapObservable(data.id);
+            }
         }, this);
         
         self.playerIterations = ko.computed(function () {
