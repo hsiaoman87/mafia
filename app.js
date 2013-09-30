@@ -28,6 +28,10 @@ app.use(express.session({ secret: 'kirby' }));
 app.use(passport.initialize());
 app.use(passport.session());
 
+io.configure(function () {
+    io.set('transports', ['xhr-polling']);
+});
+
 app.use(function (req, res, next) {
     res.locals.req = req;
     next();
