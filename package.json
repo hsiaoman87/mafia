@@ -9,6 +9,9 @@
         "express": "3.2.6",
         "socket.io": "*",
         "jade": "*",
-        "mongoose": "*"
+        "mongoose": "2.6.5",
+        "passport": "*",
+        "passport-facebook": "*",
+        "passport-google": "*",
     }
 }

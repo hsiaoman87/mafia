@@ -106,7 +106,7 @@ passport.use(
     new FacebookStrategy({
         clientID: '438271556283546',
         clientSecret: '060b9433305213195103d15e2345e372',
-        callbackURL: app.get('remoteString') + '/auth/facebook/callback'
+        callbackURL: app.get('remoteAddress') + '/auth/facebook/callback'
     },
     function (accessToken, refreshToken, profile, done) {
         console.log('facebook callback');
@@ -120,8 +120,8 @@ passport.use(
 
 passport.use(
     new GoogleStrategy({
-        returnURL: app.get('remoteString') + '/auth/google/return',
-        realm: app.get('remoteString')
+        returnURL: app.get('remoteAddress') + '/auth/google/return',
+        realm: app.get('remoteAddress')
     },
     function (identifier, profile, done) {
         console.log('google callback');
