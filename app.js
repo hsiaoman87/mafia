@@ -1,7 +1,3 @@
-var CONSTANTS = {
-    RemoteAddress: 'http://66.26.86.96:3000'
-}
-
 var express = require('express'),
     app = express(),
     routes = require('./routes'),
@@ -17,6 +13,8 @@ var express = require('express'),
 
 // all environments
 app.set('port', process.env.PORT || 3000);
+app.set('connectionString', process.env.CUSTOMCONNSTR_MONGOLAB_URI || 'mongodb://localhost/my_database');
+app.set('remoteAddress', process.env.REMOTE_ADDRESS || 'http://66.26.86.96:3000');
 app.set('views', __dirname + '/views');
 app.set('view engine', 'jade');
 app.use(express.favicon());
@@ -54,7 +52,7 @@ if ('development' == app.get('env')) {
     app.use(express.errorHandler());
 }
 
-mongoose.connect('mongodb://localhost/my_database');
+mongoose.connect(app.get('connectionString'));
 
 function clearReferer(req, res, next) {
     console.log('current url: ' + req.url);
@@ -108,7 +106,7 @@ passport.use(
     new FacebookStrategy({
         clientID: '438271556283546',
         clientSecret: '060b9433305213195103d15e2345e372',
-        callbackURL: CONSTANTS.RemoteAddress + '/auth/facebook/callback'
+        callbackURL: app.get('remoteString') + '/auth/facebook/callback'
     },
     function (accessToken, refreshToken, profile, done) {
         console.log('facebook callback');
@@ -122,8 +120,8 @@ passport.use(
 
 passport.use(
     new GoogleStrategy({
-        returnURL: CONSTANTS.RemoteAddress + '/auth/google/return',
-        realm: CONSTANTS.RemoteAddress
+        returnURL: app.get('remoteString') + '/auth/google/return',
+        realm: app.get('remoteString')
     },
     function (identifier, profile, done) {
         console.log('google callback');
