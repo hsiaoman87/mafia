@@ -6,6 +6,7 @@ var express = require('express'),
     server = http.createServer(app),
     io = require('socket.io').listen(server),
     mongoose = require('mongoose'),
+    MongoStore = require('connect-mongo')(express),
     Schema = mongoose.Schema,
     passport = require('passport'),
     FacebookStrategy = require('passport-facebook').Strategy,
@@ -22,7 +23,12 @@ app.use(express.logger('dev'));
 app.use(express.bodyParser());
 app.use(express.methodOverride());
 app.use(express.cookieParser());
-app.use(express.session({ secret: 'kirby' }));
+app.use(express.session({
+    secret: 'kirby',
+    store: new MongoStore({
+        url: app.get('connectionString')
+    })
+}));
 app.use(passport.initialize());
 app.use(passport.session());
 
