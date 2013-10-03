@@ -9,7 +9,7 @@ block content
     h3 New Game
     button(data-bind="click: startSingle") Create
     h3 Join Game
-    input(data-bind="value: joinGameId, valueUpdate: 'afterkeypress', event: { keypress: onKeyPress }", placeholder="Enter game code")
+    input(data-bind="value: joinGameId, valueUpdate: ['afterkeypress', 'input'], event: { keypress: onKeyPress }", placeholder="Enter game code")
     button(data-bind="click: join") Join
     div(data-bind="visible: false")
         h2 Single Device

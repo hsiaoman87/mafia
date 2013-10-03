@@ -868,9 +868,14 @@ server.listen(app.get('port'), function(){
 
 io.sockets.on('connection', function (socket) {
     console.log('connected!');
-    socket.emit('connection');
     socket.on('join', function (data) {
+        console.log('joined');
         socket.join(data.room);
+    });
+    socket.on('chatMessage', function (data) {
+        if (data.room) {
+            io.sockets.in(data.room).emit('sendMessage', data);
+        }
     });
 });
 

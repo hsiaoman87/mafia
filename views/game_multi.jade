@@ -16,6 +16,14 @@ block content
         else
             span= data.game.id
     div#game
+        div.chat-window
+            <!-- ko foreach: chatMessages -->
+            div
+                span(data-bind="text: user.name + ': ' + message")
+            <!-- /ko -->
+            input(data-bind="value: newMessage, valueUpdate: 'afterkeypress', event: { keypress: onKeyPress }", placeholder="Say something...")
+            input#autoScroll(type="checkbox", data-bind="checked: autoScroll")
+            label(for="autoScroll") Autoscroll
         <!-- ko with: currentPlayer -->
         div
             div(data-bind="visible: $parent.phase() === 'init'")

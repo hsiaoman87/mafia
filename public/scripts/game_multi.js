@@ -113,9 +113,34 @@ $(function () {
             });
         }
         
+        self.chatMessages = ko.observableArray();
+        self.newMessage = ko.observable();
+        self.sendMessage = function (message) {
+            console.log(message);
+            self.socket.emit('chatMessage', {
+                message: message,
+                room: self.id,
+                user: ko.mapping.toJS(self.user)
+            });
+        }
+        self.onKeyPress = function (model, e) {
+            if (e.keyCode === $.ui.keyCode.ENTER) {
+                if (self.newMessage() && $.trim(self.newMessage())) {
+                    self.sendMessage($.trim(self.newMessage()));
+                    self.newMessage(null);
+                }
+            }
+            else {
+                return true;
+            }
+        }
+        
         self.socket = io.connect('/');
-        self.socket.on('connection', function () {
-            self.socket.emit('join', { room: self.id });
+        self.socket.on('connect', function () {
+            self.socket.emit('join', {
+                room: self.id,
+                user: ko.mapping.toJS(self.user)
+            });
         });
         self.socket.on('refresh', function (game) {
             console.log('refreshed');
@@ -127,6 +152,14 @@ $(function () {
                 self.currentPlayer().displayAffiliation();
             });
         });
+        self.socket.on('sendMessage', function (data) {
+            console.log(data);
+            self.chatMessages.push(data);
+            if (self.autoScroll()) {
+                $('.chat-window').scrollTop($('.chat-window')[0].scrollHeight);
+            }
+        });
+        self.autoScroll = ko.observable(true);
         
         self.user = ko.observable(new Player(data.user, self));
         
