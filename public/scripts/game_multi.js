@@ -1,15 +1,4 @@
 $(function () {
-    ko.subscribable.fn.subscribeChanged = function (callback) {
-        var oldValue;
-        this.subscribe(function (_oldValue) {
-            oldValue = _oldValue;
-        }, this, 'beforeChange');
-        
-        this.subscribe(function (newValue) {
-            callback(newValue, oldValue);
-        });
-    };
-    
     $(document).ajaxError(function (e, jqXHR) {
         if (jqXHR.responseText) {
             alert(jqXHR.responseText);
@@ -79,6 +68,13 @@ $(function () {
     function Game(data) {
         var self = this;
         self.debug = data.debug;
+        
+        if (self.debug) {
+            $.ajaxSetup({
+                data: { debug: true }
+            });
+        }
+        
         self.leaderIndex = ko.observable();
         self.currentRound = ko.observable();
         ko.mapping.fromJS(data.game, {
@@ -154,11 +150,41 @@ $(function () {
         });
         self.socket.on('sendMessage', function (data) {
             console.log(data);
-            self.chatMessages.push(data);
+            self.chatMessages.push(new ChatMessage(data));
             if (self.autoScroll()) {
                 $('.chat-window').scrollTop($('.chat-window')[0].scrollHeight);
             }
         });
+        self.socket.on('displayNominees', function (data) {
+            var message = 'The following team has been selected: \n';
+            $.each(data.ids, function (index, id) {
+                message += '\n' + self.players()[id].name();
+            });
+            alert(message);
+        });
+        self.socket.on('displayVoteResults', function (data) {
+            
+            var approvals = data.yesVotes;
+            var rejections = data.noVotes;
+            
+            var message = approvals.length > rejections.length ? 'Vote approved!' : 'Vote rejected!';
+            
+            if (approvals.length) {
+                message += '\n\nApproved by:';
+                $.each(approvals, function (index, id) {
+                    message += '\n' + self.players()[id].name();
+                });
+            }
+            if (rejections.length) {
+                message += '\n\nRejected by:';
+                $.each(rejections, function (index, id) {
+                    message += '\n' + self.players()[id].name();
+                });
+            }
+            
+            alert(message);
+        });
+        
         self.autoScroll = ko.observable(true);
         
         self.user = ko.observable(new Player(data.user, self));
@@ -189,46 +215,6 @@ $(function () {
                 var result = round.result();
                 return isNaN(result) ? null : result;
             });
-        });
-        
-        self.displayVoteResults = function () {
-            var currentHistory = self.rounds()[self.currentRound()].history();
-            var playerIterations = currentHistory[currentHistory.length - 1].playerIterations();
-            
-            var approvals = [];
-            var rejections = [];
-            
-            $.each(playerIterations, function (index, playerIteration) {
-                if (playerIteration.voteDecision()) {
-                    approvals.push(playerIteration);
-                }
-                else {
-                    rejections.push(playerIteration);
-                }
-            });
-            
-            var message = approvals.length > rejections.length ? 'Vote approved!' : 'Vote rejected!';
-            
-            if (approvals.length) {
-                message += '\n\nApproved by:';
-                $.each(approvals, function (index, approval) {
-                    message += '\n' + approval.name();
-                });
-            }
-            if (rejections.length) {
-                message += '\n\nRejected by:';
-                $.each(rejections, function (index, rejection) {
-                    message += '\n' + rejection.name();
-                });
-            }
-            
-            alert(message);
-        }
-        
-        self.rounds.subscribeChanged(function (newRounds, oldRounds) {
-            if (newRounds.length !== oldRounds.length) {
-                self.displayVoteResults();
-            }
         });
         
         self.currentLeader = ko.computed(function () {
@@ -267,13 +253,14 @@ $(function () {
         });
         
         self.unimpersonate = function () {
-            $.ajax({
-                url: '/impersonate/' + self.id,
-                success: function() {
-                    location.reload();
-                },
-                global: false
-            });
+            if (self.debug) {
+                $.ajax({
+                    url: '/impersonate/' + self.id,
+                    success: function() {
+                        location.reload();
+                    }
+                });
+            }
         }
         
         self.mafiaPlayers = ko.computed(function () {
@@ -282,31 +269,59 @@ $(function () {
             });
         });
         
-        self.winningAffiliation = ko.computed(function () {
-            var successfulMissions = 0;
-            var failedMissions = 0;
-            $.each(self.rounds(), function (index, round) {
-                if (round.result) {
-                    successfulMissions++;
+        self.finalGameResult = ko.computed(function () {
+            if (self.phase() === PHASE.Final && self.currentPlayer().playerIndex() !== -1) {
+                var winningMissionCount = 0;
+                for (var i = 0; i < self.rounds().length; i++) {
+                    var round = self.rounds()[i];
+                    if (round.failedVoteCount() === 5) {
+                        return 'The townspeople were unable to come to consensus.  Mafia wins.';
+                    }
+                    if ((self.currentPlayer().affiliation() === AFFILIATION.Mafia) ^ round.result()) {
+                        winningMissionCount++;
+                    }
+                }
+                if (winningMissionCount === 3) {
+                    return 'You win!';
                 }
                 else {
-                    failedMissions++;
+                    return 'You lose!';
                 }
-            });
-            if (successfulMissions === 3) {
-                return AFFILIATION.Townsperson;
-            }
-            else if (failedMissions === 3) {
-                return AFFILIATION.Mafia;
             }
             else {
                 return null;
+            }
+        });
+        
+        self.failedNominations = ko.computed(function () {
+            var currentRound = self.rounds()[self.currentRound()];
+            if (currentRound) {
+                return new Array(currentRound.failedVoteCount());
+            }
+            else {
+                return new Array();
             }
         });
     }
     
     //$('.toggle-button').button();
     $('button').button();
+    
+    function ChatMessage(data) {
+        var self = this;
+        self.user = ko.observable();
+        self.message = ko.observable();
+        ko.mapping.fromJS(data, {}, this);
+        
+        self.displayMessage = ko.computed(function () {
+            if (self.user()) {
+                return self.user().name() + ': ' + self.message();
+            }
+            else {
+                return self.message();
+            }
+        });
+    }
     
     function Round(data, game) {
         var self = this;
@@ -334,12 +349,6 @@ $(function () {
                 else {
                     alert('Mission failed with one saboteur!')
                 }
-            }
-        });
-        
-        self.history.subscribeChanged(function (newHistory, oldHistory) {
-            if (newHistory.length !== oldHistory.length) {
-                gameModel.displayVoteResults();
             }
         });
     }
@@ -443,17 +452,18 @@ $(function () {
         });
         
         self.impersonate = function () {
-            var playerIndex = gameModel.players.mappedIndexOf(self);
-            $.ajax({
-                url: '/impersonate/' + gameModel.id + '/' + playerIndex,
-                success: function (data) {
-                    ko.mapping.fromJS(data, gameModel.user());
-                    console.log('impersonate');
-                    console.log(data);
-                    gameModel.getAffiliation();
-                },
-                global: false
-            });
+            if (gameModel.debug) {
+                var playerIndex = gameModel.players.mappedIndexOf(self);
+                $.ajax({
+                    url: '/impersonate/' + gameModel.id + '/' + playerIndex,
+                    success: function (data) {
+                        ko.mapping.fromJS(data, gameModel.user());
+                        console.log('impersonate');
+                        console.log(data);
+                        gameModel.getAffiliation();
+                    }
+                });
+            }
         }
         
         self.displayAffiliation = function () {

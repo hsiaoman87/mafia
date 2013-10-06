@@ -19,7 +19,7 @@ block content
         div.chat-window
             <!-- ko foreach: chatMessages -->
             div
-                span(data-bind="text: user.name + ': ' + message")
+                span(data-bind="text: displayMessage")
             <!-- /ko -->
             input(data-bind="value: newMessage, valueUpdate: 'afterkeypress', event: { keypress: onKeyPress }", placeholder="Say something...")
             input#autoScroll(type="checkbox", data-bind="checked: autoScroll")
@@ -32,13 +32,13 @@ block content
                     button(data-bind="click: leave") Leave
                     input#isReady(type="checkbox", data-bind="checked: isReady, click: save")
                     label(for="isReady") Is everybody ready?
-            div(data-bind="visible: $parent.phase() !== 'init'", style="margin-bottom: 20px;")
+            div(data-bind="visible: $parent.phase() !== 'init' && playerIndex() !== -1", style="margin-bottom: 20px;")
                 a(href="#", data-bind="click: displayAffiliation") Show Affiliation
             div(data-bind="visible: $parent.phase() !== 'final'")
                 div(data-bind="visible: $parent.failuresNeeded() == 2", style="margin-bottom: 10px;") Note: you need 2 failures this round to fail the mission
             div(data-bind="visible: $parent.phase() === 'nominate'")
-                div(data-bind="visible: $parent.isLeader")
-                    div(data-bind="text: 'Choose ' + $parent.teamSize() + ' team members:'", style="margin-bottom: 10px;")
+                div(data-bind="visible: $parent.isLeader() && playerIndex() !== -1")
+                    div(data-bind="text: 'Choose ' + $parent.teamSize() + ' team members.  You may also choose yourself.'", style="margin-bottom: 10px;")
                     <!-- ko foreach: $parent.players -->
                     div
                         input(type="checkbox", data-bind="checked: isSelected, attr: { id: 'nominate' + $index() }")
@@ -52,7 +52,7 @@ block content
                 <!-- ko foreach: $parent.candidates -->
                 div(data-bind="text: name")
                 <!-- /ko -->
-                div(style="margin-top: 10px;")
+                div(data-bind="visible: playerIndex() !== -1", style="margin-top: 10px;")
                     input#approveVote.toggle-button(type="checkbox", data-bind="checked: voteApproved(), click: vote.bind($data, true)")
                     label(for="approveVote") Approve
                     input#rejectVote.toggle-button(type="checkbox", data-bind="checked: voteRejected(), click: vote.bind($data, false)")
@@ -68,8 +68,7 @@ block content
                     div Waiting for the team go on the mission...
             div(data-bind="visible: $parent.phase() === 'final'")
                 div(style="margin-bottom: 10px;") Game Over
-                div(data-bind="visible: playerIndex() !== -1 && affiliation() === $parent.winningAffiliation()") You win!
-                div(data-bind="visible: playerIndex() !== -1 && affiliation() !== $parent.winningAffiliation()") You lose!
+                div(data-bind="text: $parent.finalGameResult")
                 div(style="margin-top: 20px; margin-bottom: 10px;") Mafia:
                 <!-- ko foreach: $parent.mafiaPlayers -->
                 div(data-bind="text: name")
@@ -77,7 +76,10 @@ block content
         <!-- /ko -->
         h2(data-bind="visible: scores().length") Score
         div(data-bind="foreach: scores")
-            img.score(data-bind="attr: { src: $data ? '/images/ok.png' : '/images/cancel.png' }")
+            img.icon(data-bind="attr: { src: $data ? '/images/ok.png' : '/images/cancel.png' }")
+        h2(data-bind="visible: failedNominations().length") Failed Votes
+        div(data-bind="foreach: failedNominations")
+            img.icon(data-bind="attr: { src: '/images/cancel.png' }")
         
         h2(data-bind="visible: players().length") Players
         <!-- ko foreach: players -->

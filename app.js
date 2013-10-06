@@ -435,7 +435,12 @@ gameSchema.methods.nominate = function (ids, cb) {
         }
         
         this.phase = PHASE.Vote;
-        this.save(cb);
+        this.save(function(err, game) {
+            cb(err, game);
+            if (!err) {
+                io.sockets.in(game.id).emit('displayNominees', { ids: ids });
+            }
+        });
     }
 }
 
@@ -479,8 +484,8 @@ gameSchema.methods.mission = function (playerIndex, succeed, cb) {
 gameSchema.methods._evaluateVote = function (cb) {
     beginMethod('_evaluateVote(cb)', arguments);
 	
-	var yesVotes = 0;
-	var noVotes = 0;
+	var yesVotes = [];
+	var noVotes = [];
 	var historyEntry = {
         leaderIndex: this.leaderIndex,
         iterations: []
@@ -492,10 +497,10 @@ gameSchema.methods._evaluateVote = function (cb) {
             break;
         }
         else if (player.voteApprove) {
-            yesVotes++;
+            yesVotes.push(i);
         }
         else {
-            noVotes++;
+            noVotes.push(i);
         }
         historyEntry.iterations.push({
             vote: player.voteApprove,
@@ -503,7 +508,7 @@ gameSchema.methods._evaluateVote = function (cb) {
         });
     }
     
-	if (yesVotes + noVotes === this.players.length) {
+	if (yesVotes.length + noVotes.length === this.players.length) {
 		var round = this.rounds[this.currentRound];
         if (!round) {
             this.rounds.push({
@@ -515,13 +520,13 @@ gameSchema.methods._evaluateVote = function (cb) {
         
 		round.history.push(historyEntry);
 		
-		if (yesVotes > noVotes) {
-			console.log('Vote passed ' + yesVotes + ' to ' + noVotes + '.');
+		if (yesVotes.length > noVotes.length) {
+			console.log('Vote passed ' + yesVotes.length + ' to ' + noVotes.length + '.');
 			this.phase = PHASE.Mission;
 		}
 		else {
             round.failedVoteCount++;
-			console.log('Vote failed ' + noVotes + ' to ' + yesVotes + '. ' + round.failedVoteCount + ' failed votes.');
+			console.log('Vote failed ' + noVotes.length + ' to ' + yesVotes.length + '. ' + round.failedVoteCount + ' failed votes.');
             
 			if (round.failedVoteCount === 5) {
 				this.phase = PHASE.Final;
@@ -541,7 +546,15 @@ gameSchema.methods._evaluateVote = function (cb) {
             this.players[i].voteApprove = undefined;
         }
 	}
-    this.save(cb);
+    this.save(function (err, game) {
+        cb(err, game);
+        if (!err && game.phase !== PHASE.Vote) {
+            io.sockets.in(game.id).emit('displayVoteResults', {
+                yesVotes: yesVotes,
+                noVotes: noVotes
+            });
+        }
+    });
 }
 
 gameSchema.methods._evaluateMission = function (cb) {
