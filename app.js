@@ -73,6 +73,11 @@ db.connection.on('close', function (str) {
     console.log("DB disconnected: "+str);
 });
 
+process.on('uncaughtException', function (err) {
+    console.log('UNCAUGHT EXCEPTION!');
+    console.log(err);
+});
+
 function clearReferer(req, res, next) {
     console.log('current url: ' + req.url);
     console.log('deleting referer: ' + req.session.referer);
