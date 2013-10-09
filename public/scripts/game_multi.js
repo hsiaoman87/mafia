@@ -184,6 +184,14 @@ $(function () {
             
             alert(message);
         });
+        self.socket.on('error', function (data) {
+            console.log('error');
+            console.log(data);
+        });
+        self.socket.on('disconnect', function (data) {
+            console.log('disconnect');
+            console.log(data);
+        });
         
         self.autoScroll = ko.observable(true);
         

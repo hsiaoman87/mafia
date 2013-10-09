@@ -54,11 +54,24 @@ app.use(app.router);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // development only
-//if ('development' == app.get('env')) {
+if ('development' == app.get('env')) {
     app.use(express.errorHandler());
-//}
+}
 
-mongoose.connect(app.get('connectionString'));
+var db = mongoose.connect(app.get('connectionString'), { server: {
+    auto_reconnect: true,
+    socketOptions: { keepAlive: 1 }
+}});
+
+db.connection.on('error', function (err) {
+    console.log("DB connection Error: "+err);
+});
+db.connection.on('open', function () {
+    console.log("DB connected");
+});
+db.connection.on('close', function (str) {
+    console.log("DB disconnected: "+str);
+});
 
 function clearReferer(req, res, next) {
     console.log('current url: ' + req.url);
@@ -889,6 +902,14 @@ io.sockets.on('connection', function (socket) {
         if (data.room) {
             io.sockets.in(data.room).emit('sendMessage', data);
         }
+    });
+    socket.on('disconnect', function (data) {
+        console.log('socket disconnect');
+        console.log(data);
+    });
+    socket.on('error', function (data) {
+        console.log('socket error');
+        console.log(data);
     });
 });
 
