@@ -76,6 +76,7 @@ db.connection.on('close', function (str) {
 process.on('uncaughtException', function (err) {
     console.log('UNCAUGHT EXCEPTION!');
     console.log(err);
+    console.log(err.stack);
 });
 
 function clearReferer(req, res, next) {
