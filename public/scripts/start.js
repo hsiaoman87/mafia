@@ -5,7 +5,12 @@ $(function () {
         
         self.joinGameId = ko.observable();
         
+        self.createButtonText = ko.observable('Create');
+        self.creating = ko.observable(false);
+        
         self.startSingle = function () {
+            self.createButtonText('Creating...');
+            self.creating(true);
             $.post('/', {
                 isMultiDevice: true
             },

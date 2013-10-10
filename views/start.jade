@@ -1,13 +1,12 @@
 extends layout
 
 block scripts
-    script(src='/socket.io/socket.io.js')
     script(src='/scripts/start.js')
 
 block content
     h1= title
     h3 New Game
-    button(data-bind="click: startSingle") Create
+    button(data-bind="click: startSingle, text: createButtonText, disable: creating")
     h3 Join Game
     input(data-bind="value: joinGameId, valueUpdate: ['afterkeypress', 'input'], event: { keypress: onKeyPress }", placeholder="Enter game code")
     button(data-bind="click: join") Join

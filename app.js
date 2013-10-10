@@ -80,8 +80,6 @@ process.on('uncaughtException', function (err) {
 });
 
 function clearReferer(req, res, next) {
-    console.log('current url: ' + req.url);
-    console.log('deleting referer: ' + req.session.referer);
     delete req.session.referer;
     next();
 }
@@ -903,15 +901,29 @@ io.sockets.on('connection', function (socket) {
     socket.on('join', function (data) {
         console.log('joined');
         socket.join(data.room);
+        socket.room = data.room;
+        socket.user = data.user;
+        io.sockets.in(data.room).emit('sendMessage', {
+            message: data.user.name + ' has joined the room.'
+        });
     });
     socket.on('chatMessage', function (data) {
         if (data.room) {
+            socket.room = data.room;
+            socket.user = data.user;
             io.sockets.in(data.room).emit('sendMessage', data);
         }
     });
     socket.on('disconnect', function (data) {
         console.log('socket disconnect');
         console.log(data);
+        if (socket.room && socket.user) {
+            var message = socket.user.name + ' has left the room.';
+            console.log(message);
+            io.sockets.in(socket.room).emit('sendMessage', {
+                message: message
+            });
+        }
     });
     socket.on('error', function (data) {
         console.log('socket error');

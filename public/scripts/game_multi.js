@@ -99,8 +99,6 @@ $(function () {
         
         self.getAffiliation = function (callback) {
             $.get('/' + self.id + '/_api/game', null, function (game) {
-                console.log('getAffiliation');
-                console.log(game);
                 ko.mapping.fromJS(game, self);
                 
                 if ($.isFunction(callback)) {
@@ -112,7 +110,6 @@ $(function () {
         self.chatMessages = ko.observableArray();
         self.newMessage = ko.observable();
         self.sendMessage = function (message) {
-            console.log(message);
             self.socket.emit('chatMessage', {
                 message: message,
                 room: self.id,
@@ -131,7 +128,23 @@ $(function () {
             }
         }
         
-        self.socket = io.connect('/');
+        self.focused = ko.observable(true);
+        window.onfocus = function () {
+            self.focused(true);
+            if (self.notificationInterval) {
+                clearInterval(self.notificationInterval);
+                self.notificationInterval = null;
+                document.title = self.originalTitle;
+            }
+        }
+        window.onblur = function () {
+            self.focused(false);
+        }
+        window.onbeforeunload = function () {
+            self.socket.disconnect();
+        }
+        
+        self.socket = io.connect();
         self.socket.on('connect', function () {
             self.socket.emit('join', {
                 room: self.id,
@@ -140,7 +153,6 @@ $(function () {
         });
         self.socket.on('refresh', function (game) {
             console.log('refreshed');
-            console.log(game);
             ko.mapping.fromJS(game, self);
         });
         self.socket.on('start', function () {
@@ -148,8 +160,22 @@ $(function () {
                 self.currentPlayer().displayAffiliation();
             });
         });
+        self.originalTitle = document.title;
         self.socket.on('sendMessage', function (data) {
-            console.log(data);
+            if (data.user && !self.focused()) {
+                if (self.notificationInterval) {
+                    clearInterval(self.notificationInterval);
+                }
+                document.title = data.user.name + ' says...';
+                self.notificationInterval = setInterval(function () {
+                    if (document.title === self.originalTitle) {
+                        document.title = data.user.name + ' says...';
+                    }
+                    else {
+                        document.title = self.originalTitle;
+                    }
+                }, 2000);
+            }
             self.chatMessages.push(new ChatMessage(data));
             if (self.autoScroll()) {
                 $('.chat-window').scrollTop($('.chat-window')[0].scrollHeight);
