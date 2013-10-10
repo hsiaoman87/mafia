@@ -27,10 +27,10 @@ block content
         <!-- ko with: currentPlayer -->
         div
             div(data-bind="visible: $parent.phase() === 'init'")
-                button(data-bind="visible: playerIndex() === -1, click: join") Join
+                button(data-bind="visible: playerIndex() === -1, click: join, disable: $parent.inProgress") Join
                 div(data-bind="visible: playerIndex() !== -1")
-                    button(data-bind="click: leave") Leave
-                    input#isReady(type="checkbox", data-bind="checked: isReady, click: save")
+                    button(data-bind="click: leave, disable: $parent.inProgress") Leave
+                    input#isReady(type="checkbox", data-bind="checked: isReady, click: save, disable: $parent.inProgress")
                     label(for="isReady") Is everybody ready?
             div(data-bind="visible: $parent.phase() !== 'init' && playerIndex() !== -1", style="margin-bottom: 20px;")
                 a(href="#", data-bind="click: displayAffiliation") Show Affiliation
@@ -44,7 +44,7 @@ block content
                         input(type="checkbox", data-bind="checked: isSelected, attr: { id: 'nominate' + $index() }")
                         label(data-bind="text: name, attr: { for: 'nominate' + $index() }")
                     <!-- /ko -->
-                    button(data-bind="click: $parent.submitNominees", style="margin-top: 10px;") OK
+                    button(data-bind="click: $parent.nominate, disable: $parent.inProgress() || !$parent.readyToNominate()", style="margin-top: 10px;") OK
                 div(data-bind="if: $parent.currentLeader, visible: !$parent.isLeader()")
                     div(data-bind="text: 'Waiting for ' + $parent.currentLeader().name() + ' to choose ' + $parent.teamSize() + ' team members...'")
             div(data-bind="visible: $parent.phase() === 'vote'")
@@ -53,16 +53,16 @@ block content
                 div(data-bind="text: name")
                 <!-- /ko -->
                 div(data-bind="visible: playerIndex() !== -1", style="margin-top: 10px;")
-                    input#approveVote.toggle-button(type="checkbox", data-bind="checked: voteApproved(), click: vote.bind($data, true)")
+                    input#approveVote.toggle-button(type="checkbox", data-bind="checked: voteApproved(), click: vote.bind($data, true), disable: $parent.inProgress")
                     label(for="approveVote") Approve
-                    input#rejectVote.toggle-button(type="checkbox", data-bind="checked: voteRejected(), click: vote.bind($data, false)")
+                    input#rejectVote.toggle-button(type="checkbox", data-bind="checked: voteRejected(), click: vote.bind($data, false), disable: $parent.inProgress")
                     label(for="rejectVote") Reject
             div(data-bind="visible: $parent.phase() === 'mission'")
                 div(data-bind="visible: nominee")
                     div(style="margin-bottom: 10px;") Choose an outcome for the mission:
-                    input#succeedMission.toggle-button(type="checkbox", data-bind="checked: missionSucceeded(), click: mission.bind($data, true)")
+                    input#succeedMission.toggle-button(type="checkbox", data-bind="checked: missionSucceeded(), click: mission.bind($data, true), disable: $parent.inProgress")
                     label(for="succeedMission") Succeed
-                    input#failMission.toggle-button(type="checkbox", data-bind="checked: missionFailed(), click: mission.bind($data, false)")
+                    input#failMission.toggle-button(type="checkbox", data-bind="checked: missionFailed(), click: mission.bind($data, false), disable: $parent.inProgress")
                     label(for="failMission") Sabotage
                 div(data-bind="visible: !nominee()")
                     div Waiting for the team go on the mission...
@@ -117,7 +117,7 @@ block content
                             input(type="checkbox", data-bind="checked: isSelected, attr: { id: 'nominate' + $index() }")
                             label(data-bind="text: name, attr: { for: 'nominate' + $index() }")
                         <!-- /ko -->
-                        button(data-bind="click: $parent.submitNominees") OK
+                        button(data-bind="click: $parent.nominate") OK
                 tr
                     td Vote
                     td

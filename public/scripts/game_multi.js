@@ -75,6 +75,8 @@ $(function () {
             });
         }
         
+        self.inProgress = ko.observable(false);
+        
         self.leaderIndex = ko.observable();
         self.currentRound = ko.observable();
         ko.mapping.fromJS(data.game, {
@@ -259,18 +261,29 @@ $(function () {
             return self.currentLeader() === self.currentPlayer();
         });
         
-        self.submitNominees = function () {
-            var nomineeIds = [];
+        self.nominees = ko.computed(function () {
+            var nominees = [];
             $.each(self.players(), function (index, player) {
                 if (player.isSelected()) {
-                    nomineeIds.push(index);
+                    nominees.push(index);
                 }
             });
+            return nominees;
+        });
+        
+        self.readyToNominate = ko.computed(function () {
+            return self.teamSize() === self.nominees().length;
+        });
+        
+        self.nominate = function () {
+            var nomineeIds = self.nominees();
             
+            self.inProgress(true);
             $.post('/' + self.id + '/_api/nominate', {
                 ids: nomineeIds
             },
             function (game) {
+                self.inProgress(false);
                 $.each(self.players(), function (index, player) {
                     player.isSelected(false);
                 });
@@ -288,6 +301,7 @@ $(function () {
         
         self.unimpersonate = function () {
             if (self.debug) {
+                self.inProgress(true);
                 $.ajax({
                     url: '/impersonate/' + self.id,
                     success: function() {
@@ -339,7 +353,7 @@ $(function () {
     }
     
     //$('.toggle-button').button();
-    $('button').button();
+    //$('button').button();
     
     function ChatMessage(data) {
         var self = this;
@@ -487,10 +501,12 @@ $(function () {
         
         self.impersonate = function () {
             if (gameModel.debug) {
+                gameModel.inProgress(true);
                 var playerIndex = gameModel.players.mappedIndexOf(self);
                 $.ajax({
                     url: '/impersonate/' + gameModel.id + '/' + playerIndex,
                     success: function (data) {
+                        gameModel.inProgress(false);
                         ko.mapping.fromJS(data, gameModel.user());
                         console.log('impersonate');
                         console.log(data);
@@ -515,35 +531,50 @@ $(function () {
         }
         
         self.vote = function (approve) {
+            gameModel.inProgress(true);
             var playerIndex = gameModel.players.mappedIndexOf(self);
             $.post('/' + gameModel.id + '/_api/' + playerIndex + '/vote', {
                 approve: self.voteApprove() === approve ? null : approve
+                }).complete(function () {
+                gameModel.inProgress(false);
             });
         }
         
         self.mission = function (succeed) {
+            gameModel.inProgress(true);
             var playerIndex = gameModel.players.mappedIndexOf(self);
             $.post('/' + gameModel.id + '/_api/' + playerIndex + '/mission', {
                 succeed: self.missionSuccess() === succeed ? null : succeed
+                }).complete(function () {
+                gameModel.inProgress(false);
             });
         }
         
         self.save = function () {
+            gameModel.inProgress(true);
             var playerIndex = gameModel.players.mappedIndexOf(self);
             $.ajax('/' + gameModel.id + '/_api/users/' + playerIndex, {
                 data: { isReady: self.isReady() },
                 type: 'PATCH'
+            }).complete(function () {
+                gameModel.inProgress(false);
             });
         }
         
         self.join = function () {
-            $.post('/' + gameModel.id + '/_api/users');
+            gameModel.inProgress(true);
+            $.post('/' + gameModel.id + '/_api/users').complete(function () {
+                gameModel.inProgress(false);
+            });
         }
         
         self.leave = function () {
+            gameModel.inProgress(true);
             var playerIndex = gameModel.players.mappedIndexOf(self);
             $.ajax('/' + gameModel.id + '/_api/users/' + playerIndex, {
                 type: 'DELETE'
+            }).complete(function () {
+                gameModel.inProgress(false);
             });
         }
     }
