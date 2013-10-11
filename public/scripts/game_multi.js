@@ -99,13 +99,9 @@ $(function () {
             }
         }, this);
         
-        self.getAffiliation = function (callback) {
-            $.get('/' + self.id + '/_api/game', null, function (game) {
+        self.getAffiliation = function () {
+            return $.get('/' + self.id + '/_api/game', null, function (game) {
                 ko.mapping.fromJS(game, self);
-                
-                if ($.isFunction(callback)) {
-                    callback(game);
-                }
             });
         }
         
@@ -136,91 +132,116 @@ $(function () {
             if (self.notificationInterval) {
                 clearInterval(self.notificationInterval);
                 self.notificationInterval = null;
-                document.title = self.originalTitle;
             }
+            document.title = self.originalTitle;
         }
         window.onblur = function () {
             self.focused(false);
         }
-        window.onbeforeunload = function () {
+        
+        $(window).bind('beforeunload', function () {
             self.socket.disconnect();
+            self.unloadTimeout = setTimeout(function () {
+                self.connectSocket();
+            }, 500);
+            if (self.currentPlayer().playerIndex() !== -1) {
+                if (self.phase() === PHASE.Init) {
+                    self.currentPlayer().leave().complete(function () {
+                        self.getAffiliation();
+                    });
+                    return 'You have left the game.';
+                }
+                else if (self.phase() !== PHASE.Final) {
+                    return 'This game is still in progress!';
+                }
+            }
+            return 'You have left the room.';
+        });
+        $(window).unload(function () {
+            if (self.unloadTimeout) {
+                clearTimeout(self.unloadTimeout);
+            }
+        });
+        
+        self.connectSocket = function () {
+            self.socket = io.connect(null, { 'force new connection': true });
+            self.socket.on('connect', function () {
+                self.socket.emit('join', {
+                    room: self.id,
+                    user: ko.mapping.toJS(self.user)
+                });
+            });
+            self.socket.on('refresh', function (game) {
+                console.log('refreshed');
+                ko.mapping.fromJS(game, self);
+            });
+            self.socket.on('start', function () {
+                self.getAffiliation().success(function () {
+                    self.currentPlayer().displayAffiliation();
+                });
+            });
+            self.socket.on('sendMessage', function (data) {
+                if (data.user && !self.focused()) {
+                    if (self.notificationInterval) {
+                        clearInterval(self.notificationInterval);
+                    }
+                    document.title = data.user.name + ' says...';
+                    self.notificationInterval = setInterval(function () {
+                        if (document.title === self.originalTitle) {
+                            document.title = data.user.name + ' says...';
+                        }
+                        else {
+                            document.title = self.originalTitle;
+                        }
+                    }, 2000);
+                }
+                self.chatMessages.push(new ChatMessage(data));
+                if (self.autoScroll()) {
+                    $('.chat-window').scrollTop($('.chat-window')[0].scrollHeight);
+                }
+            });
+            self.socket.on('displayNominees', function (data) {
+                var message = 'The following team has been selected: \n';
+                $.each(data.ids, function (index, id) {
+                    message += '\n' + self.players()[id].name();
+                });
+                alert(message);
+            });
+            self.socket.on('displayVoteResults', function (data) {
+                
+                var approvals = data.yesVotes;
+                var rejections = data.noVotes;
+                
+                var message = approvals.length > rejections.length ? 'Vote approved!' : 'Vote rejected!';
+                
+                if (approvals.length) {
+                    message += '\n\nApproved by:';
+                    $.each(approvals, function (index, id) {
+                        message += '\n' + self.players()[id].name();
+                    });
+                }
+                if (rejections.length) {
+                    message += '\n\nRejected by:';
+                    $.each(rejections, function (index, id) {
+                        message += '\n' + self.players()[id].name();
+                    });
+                }
+                
+                alert(message);
+            });
+            self.socket.on('error', function (data) {
+                console.log('error');
+                console.log(data);
+            });
+            self.socket.on('disconnect', function (data) {
+                console.log('disconnect');
+                console.log(data);
+            });
         }
         
-        self.socket = io.connect();
-        self.socket.on('connect', function () {
-            self.socket.emit('join', {
-                room: self.id,
-                user: ko.mapping.toJS(self.user)
-            });
-        });
-        self.socket.on('refresh', function (game) {
-            console.log('refreshed');
-            ko.mapping.fromJS(game, self);
-        });
-        self.socket.on('start', function () {
-            self.getAffiliation(function () {
-                self.currentPlayer().displayAffiliation();
-            });
-        });
-        self.originalTitle = document.title;
-        self.socket.on('sendMessage', function (data) {
-            if (data.user && !self.focused()) {
-                if (self.notificationInterval) {
-                    clearInterval(self.notificationInterval);
-                }
-                document.title = data.user.name + ' says...';
-                self.notificationInterval = setInterval(function () {
-                    if (document.title === self.originalTitle) {
-                        document.title = data.user.name + ' says...';
-                    }
-                    else {
-                        document.title = self.originalTitle;
-                    }
-                }, 2000);
-            }
-            self.chatMessages.push(new ChatMessage(data));
-            if (self.autoScroll()) {
-                $('.chat-window').scrollTop($('.chat-window')[0].scrollHeight);
-            }
-        });
-        self.socket.on('displayNominees', function (data) {
-            var message = 'The following team has been selected: \n';
-            $.each(data.ids, function (index, id) {
-                message += '\n' + self.players()[id].name();
-            });
-            alert(message);
-        });
-        self.socket.on('displayVoteResults', function (data) {
-            
-            var approvals = data.yesVotes;
-            var rejections = data.noVotes;
-            
-            var message = approvals.length > rejections.length ? 'Vote approved!' : 'Vote rejected!';
-            
-            if (approvals.length) {
-                message += '\n\nApproved by:';
-                $.each(approvals, function (index, id) {
-                    message += '\n' + self.players()[id].name();
-                });
-            }
-            if (rejections.length) {
-                message += '\n\nRejected by:';
-                $.each(rejections, function (index, id) {
-                    message += '\n' + self.players()[id].name();
-                });
-            }
-            
-            alert(message);
-        });
-        self.socket.on('error', function (data) {
-            console.log('error');
-            console.log(data);
-        });
-        self.socket.on('disconnect', function (data) {
-            console.log('disconnect');
-            console.log(data);
-        });
+        self.connectSocket();
         
+        self.originalTitle = document.title;
         self.autoScroll = ko.observable(true);
         
         self.user = ko.observable(new Player(data.user, self));
@@ -305,6 +326,7 @@ $(function () {
                 $.ajax({
                     url: '/impersonate/' + self.id,
                     success: function() {
+                        $(window).unbind('beforeunload');
                         location.reload();
                     }
                 });
@@ -502,9 +524,8 @@ $(function () {
         self.impersonate = function () {
             if (gameModel.debug) {
                 gameModel.inProgress(true);
-                var playerIndex = gameModel.players.mappedIndexOf(self);
                 $.ajax({
-                    url: '/impersonate/' + gameModel.id + '/' + playerIndex,
+                    url: '/impersonate/' + gameModel.id + '/' + self.playerIndex(),
                     success: function (data) {
                         gameModel.inProgress(false);
                         ko.mapping.fromJS(data, gameModel.user());
@@ -532,8 +553,7 @@ $(function () {
         
         self.vote = function (approve) {
             gameModel.inProgress(true);
-            var playerIndex = gameModel.players.mappedIndexOf(self);
-            $.post('/' + gameModel.id + '/_api/' + playerIndex + '/vote', {
+            $.post('/' + gameModel.id + '/_api/' + self.playerIndex() + '/vote', {
                 approve: self.voteApprove() === approve ? null : approve
                 }).complete(function () {
                 gameModel.inProgress(false);
@@ -542,8 +562,7 @@ $(function () {
         
         self.mission = function (succeed) {
             gameModel.inProgress(true);
-            var playerIndex = gameModel.players.mappedIndexOf(self);
-            $.post('/' + gameModel.id + '/_api/' + playerIndex + '/mission', {
+            $.post('/' + gameModel.id + '/_api/' + self.playerIndex() + '/mission', {
                 succeed: self.missionSuccess() === succeed ? null : succeed
                 }).complete(function () {
                 gameModel.inProgress(false);
@@ -552,8 +571,7 @@ $(function () {
         
         self.save = function () {
             gameModel.inProgress(true);
-            var playerIndex = gameModel.players.mappedIndexOf(self);
-            $.ajax('/' + gameModel.id + '/_api/users/' + playerIndex, {
+            $.ajax('/' + gameModel.id + '/_api/users/' + self.playerIndex(), {
                 data: { isReady: self.isReady() },
                 type: 'PATCH'
             }).complete(function () {
@@ -570,8 +588,7 @@ $(function () {
         
         self.leave = function () {
             gameModel.inProgress(true);
-            var playerIndex = gameModel.players.mappedIndexOf(self);
-            $.ajax('/' + gameModel.id + '/_api/users/' + playerIndex, {
+            return $.ajax('/' + gameModel.id + '/_api/users/' + self.playerIndex(), {
                 type: 'DELETE'
             }).complete(function () {
                 gameModel.inProgress(false);
