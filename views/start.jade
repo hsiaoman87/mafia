@@ -4,6 +4,15 @@ block scripts
     script(src='/scripts/start.js')
 
 block content
+    div.header
+        if req.user
+            div
+                a#user-name(href="#")= req.user.name
+            div
+                a(href="/logout") Logout
+        else
+            div
+                a(href="/login") Login
     h1= title
     h3 New Game
     button(data-bind="click: startSingle, text: createButtonText, disable: creating")

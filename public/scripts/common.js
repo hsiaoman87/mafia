@@ -8,5 +8,6 @@ $(function () {
                 location.reload();
             });
         }
+        return false;
     });
 });

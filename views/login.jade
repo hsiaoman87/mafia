@@ -1,16 +1,29 @@
 extends layout
 
 block scripts
+    link(rel='stylesheet', href='/styles/login.css')
     script(src='/socket.io/socket.io.js')
     script(src='/scripts/login.js')
     script.
         var referer = '!{req.session.referer || ''}';
 
 block content
+    div.header
+        if req.user
+            div
+                a#user-name(href="#")= req.user.name
+            div
+                a(href="/logout") Logout
     h1= title
-    div
-        a(href="/auth/facebook") Facebook
-    div
-        a(href="/auth/google") Google
-    div
-        a(href="#", data-bind="click: createGuest") Guest
+    div.login
+        a(href="/auth/facebook")
+            img(src="/images/fb.png")
+        a.name(href="/auth/facebook") Facebook
+    div.login
+        a(href="/auth/google")
+            img(src="/images/gplus.png")
+        a.name(href="/auth/google") Google
+    div.login
+        a(href="#", data-bind="click: createGuest")
+            img(src="/images/guest.png")
+        a.name(href="#", data-bind="click: createGuest") Guest

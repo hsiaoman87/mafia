@@ -898,14 +898,17 @@ server.listen(app.get('port'), function(){
 
 io.sockets.on('connection', function (socket) {
     console.log('connected!');
-    socket.on('join', function (data) {
+    socket.on('join', function (data, cb) {
         console.log('joined');
         socket.join(data.room);
         socket.room = data.room;
         socket.user = data.user;
-        io.sockets.in(data.room).emit('sendMessage', {
+        socket.broadcast.to(data.room).emit('sendMessage', {
             message: data.user.name + ' has joined the room.'
         });
+        if (cb) {
+            cb();
+        }
     });
     socket.on('chatMessage', function (data) {
         if (data.room) {
@@ -920,7 +923,7 @@ io.sockets.on('connection', function (socket) {
         if (socket.room && socket.user) {
             var message = socket.user.name + ' has left the room.';
             console.log(message);
-            io.sockets.in(socket.room).emit('sendMessage', {
+            socket.broadcast.to(socket.room).emit('sendMessage', {
                 message: message
             });
         }

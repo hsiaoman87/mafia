@@ -4,6 +4,12 @@ $(function () {
             alert(jqXHR.responseText);
         }
     });
+    $('#game').layout({
+        east__size: 300,
+        east__minSize: 200,
+        east__maxSize: 0.5,
+        livePaneResizing: true
+    });
     
     $(document).keydown(function (e) {
         if (gameModel.debug) {
@@ -142,7 +148,7 @@ $(function () {
         $(window).bind('beforeunload', function () {
             self.socket.disconnect();
             self.unloadTimeout = setTimeout(function () {
-                self.connectSocket();
+                self.connectSocket(true);
             }, 500);
             if (self.currentPlayer().playerIndex() !== -1) {
                 if (self.phase() === PHASE.Init) {
@@ -163,12 +169,16 @@ $(function () {
             }
         });
         
-        self.connectSocket = function () {
+        self.connectSocket = function (rejoin) {
             self.socket = io.connect(null, { 'force new connection': true });
             self.socket.on('connect', function () {
                 self.socket.emit('join', {
                     room: self.id,
                     user: ko.mapping.toJS(self.user)
+                }, function () {
+                    if (!rejoin) {
+                        self.chatMessages.push(new ChatMessage({ message: 'You have joined the room.' }));
+                    }
                 });
             });
             self.socket.on('refresh', function (game) {
@@ -327,6 +337,7 @@ $(function () {
                     url: '/impersonate/' + self.id,
                     success: function() {
                         $(window).unbind('beforeunload');
+                        self.socket.disconnect();
                         location.reload();
                     }
                 });
@@ -379,17 +390,21 @@ $(function () {
     
     function ChatMessage(data) {
         var self = this;
+        self.timestamp = new Date();
         self.user = ko.observable();
         self.message = ko.observable();
         ko.mapping.fromJS(data, {}, this);
-        
-        self.displayMessage = ko.computed(function () {
-            if (self.user()) {
-                return self.user().name() + ': ' + self.message();
-            }
-            else {
-                return self.message();
-            }
+        self.timestampDisplay = ko.computed(function () {
+            var display = '';
+            var hours = self.timestamp.getHours();
+            var minutes = self.timestamp.getMinutes();
+            display += (hours % 12) || 12;
+            display += ':'
+            display += minutes < 10 ? '0' + minutes : minutes;
+            display += ' ';
+            display += hours < 12 ? 'am' : 'pm';
+            
+            return display;
         });
     }
     

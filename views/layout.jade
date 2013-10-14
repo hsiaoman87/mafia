@@ -21,13 +21,4 @@ html
         script(src='/scripts/common.js')
         block scripts
     body
-        div
-            if req.user
-                div
-                    a#user-name(href="#")= req.user.name
-                div
-                    a(href="/logout") Logout
-            else if req.url !== '/login'
-                div
-                    a(href="/login") Login
         block content
