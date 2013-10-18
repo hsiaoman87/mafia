@@ -34,6 +34,7 @@
 {
     word-break: break-word;
     padding: 20px;
+    background: white;
 }
 .system-message
 {

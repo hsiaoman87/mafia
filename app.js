@@ -26,7 +26,8 @@ app.use(express.cookieParser());
 app.use(express.session({
     secret: 'kirby',
     store: new MongoStore({
-        url: app.get('connectionString')
+        url: app.get('connectionString'),
+        auto_reconnect: true
     })
 }));
 app.use(passport.initialize());
@@ -645,6 +646,7 @@ gameSchema.methods._evaluateMission = function (cb) {
 var Game = mongoose.model('Game', gameSchema);
 
 app.param('id', function (req, res, next, id) {
+    console.log('id: ' + id);
     Game.findOne({
         id: { $regex: new RegExp('^' + id + '$', 'i') }
     }).populate('players.user').exec(function (err, game) {
