@@ -23,11 +23,26 @@ app.use(express.logger('dev'));
 app.use(express.bodyParser());
 app.use(express.methodOverride());
 app.use(express.cookieParser());
+
+var db = mongoose.connect(app.get('connectionString'), { server: {
+    auto_reconnect: true,
+    socketOptions: { keepAlive: 1 }
+}});
+
+db.connection.on('error', function (err) {
+    console.log("DB connection Error: "+err);
+});
+db.connection.on('open', function () {
+    console.log("DB connected");
+});
+db.connection.on('close', function (str) {
+    console.log("DB disconnected: "+str);
+});
+
 app.use(express.session({
     secret: 'kirby',
     store: new MongoStore({
-        url: app.get('connectionString'),
-        auto_reconnect: true
+        mongoose_connection: mongoose.connection
     })
 }));
 app.use(passport.initialize());
@@ -58,21 +73,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 if ('development' == app.get('env')) {
     app.use(express.errorHandler());
 }
-
-var db = mongoose.connect(app.get('connectionString'), { server: {
-    auto_reconnect: true,
-    socketOptions: { keepAlive: 1 }
-}});
-
-db.connection.on('error', function (err) {
-    console.log("DB connection Error: "+err);
-});
-db.connection.on('open', function () {
-    console.log("DB connected");
-});
-db.connection.on('close', function (str) {
-    console.log("DB disconnected: "+str);
-});
 
 process.on('uncaughtException', function (err) {
     console.log('UNCAUGHT EXCEPTION!');
