@@ -107,7 +107,7 @@ block content
                             <!-- /ko -->
                     tbody(data-bind="foreach: playerRounds")
                         tr
-                            td(data-bind="text: name")
+                            td.history-name(data-bind="text: name, attr: { title: name }")
                             <!-- ko foreach: history -->
                             td.history-entry(data-bind="visible: $root.historyOptions.showIterations() || isLastIteration, css: { leader: isLeader, success: isLastIteration && succeeded, fail: isLastIteration && succeeded === false }")
                                 div.vote(data-bind="visible: !$root.historyOptions.showTeamMembersOnly() || iteration.teamMember, css: { approve: ($root.historyOptions.showVotes() === 'all' || $root.historyOptions.showVotes() === 'approved') && iteration.vote(), reject: ($root.historyOptions.showVotes() === 'all' || $root.historyOptions.showVotes() === 'rejected') && iteration.vote() === false, 'team-member': iteration.teamMember }")
