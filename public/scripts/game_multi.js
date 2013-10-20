@@ -4,12 +4,19 @@ $(function () {
             alert(jqXHR.responseText);
         }
     });
-    $('#game').layout({
+    var layout = $('#game').layout({
+        slidable: false,
+        west__size: 250,
+        west__minSize: 200,
+        west__maxSize: 0.4,
         east__size: 300,
         east__minSize: 200,
-        east__maxSize: 0.5,
+        east__maxSize: 0.4,
+        south__size: 300,
         livePaneResizing: true
     });
+
+    layout.loadCookie()
     
     $(document).keydown(function (e) {
         if (gameModel.debug) {
@@ -146,6 +153,8 @@ $(function () {
         }
         
         $(window).bind('beforeunload', function () {
+            $.ui.cookie.write('history-options', ko.mapping.toJSON(self.historyOptions));
+            layout.saveCookie();
             self.socket.disconnect();
             self.unloadTimeout = setTimeout(function () {
                 self.connectSocket(true);
@@ -383,6 +392,50 @@ $(function () {
                 return new Array();
             }
         });
+
+        self.playerRoundHeaders = ko.computed(function () {
+            var headers = [];
+            $.each(self.rounds(), function (roundIndex, round) {
+                headers.push({
+                    roundIndex: roundIndex,
+                    iterationCount: round.history().length
+                });
+            });
+            return headers;
+        });
+
+        self.playerRounds = ko.computed(function () {
+            var header = [];
+            var players = $.map(self.players(), function (player) {
+                return $.extend({
+                    history: []
+                }, player);
+            })
+            var empty = true;
+            $.each(self.rounds(), function (roundIndex, round) {
+                $.each(round.history(), function (historyIndex, history) {
+                    $.each(history.iterations(), function (playerIndex, iteration) {
+                        empty = false;
+                        players[playerIndex].history.push({
+                            iteration: iteration,
+                            historyIndex: historyIndex,
+                            isLeader: history.leaderIndex() === playerIndex,
+                            isLastIteration: historyIndex === round.history().length - 1,
+                            succeeded: round.result()
+                        })
+                    });
+                });
+            });
+            return empty ? [] : players;
+        });
+
+        self.historyOptions = {
+            showIterations: ko.observable(true),
+            showVotes: ko.observable('all'),
+            showTeamMembersOnly: ko.observable(false)
+        }
+
+        ko.mapping.fromJSON($.ui.cookie.read('history-options'), {}, self.historyOptions);
     }
     
     //$('.toggle-button').button();
@@ -437,51 +490,29 @@ $(function () {
             }
         });
     }
+
+    function PlayerVote(data) {
+        var self = this;
+        self.vote = ko.observable();
+        ko.mapping.fromJS(data, {
+        }, this);
+    }
     
     function HistoryEntry(data, game) {
         var self = this;
         ko.mapping.fromJS(data, {
+            iterations: {
+                create: function (options) {
+                    return new PlayerVote(options.data);
+                },
+                key: function (data) {
+                    return ko.utils.unwrapObservable(data.id);
+                }
+            },
             key: function (data) {
                 return ko.utils.unwrapObservable(data.id);
             }
         }, this);
-        
-        self.playerIterations = ko.computed(function () {
-            return $.map(self.iterations(), function (iteration, index) {
-                return $.extend({
-                    voteDecision: iteration.vote,
-                    isTeamMember: iteration.teamMember
-                }, game.players()[index]);
-            });
-        });
-        
-        self.voteCounts = ko.computed(function () {
-            var approveCount = 0;
-            var rejectCount = 0;
-            $.each(self.iterations(), function (index, iteration) {
-                if (iteration.vote()) {
-                    approveCount++;
-                }
-                else {
-                    rejectCount++;
-                }
-            });
-            
-            return {
-                approveCount: approveCount,
-                rejectCount: rejectCount
-            };
-        });
-        
-        self.leader = ko.computed(function () {
-            return game.players()[self.leaderIndex()];
-        });
-        
-        self.teamMembers = ko.computed(function () {
-            return $.grep(self.playerIterations(), function (player, index) {
-                return player.isTeamMember();
-            });
-        });
     }
     
     function Player(data, gameModel) {
@@ -570,7 +601,7 @@ $(function () {
             gameModel.inProgress(true);
             $.post('/' + gameModel.id + '/_api/' + self.playerIndex() + '/vote', {
                 approve: self.voteApprove() === approve ? null : approve
-                }).complete(function () {
+            }).complete(function () {
                 gameModel.inProgress(false);
             });
         }
@@ -579,7 +610,7 @@ $(function () {
             gameModel.inProgress(true);
             $.post('/' + gameModel.id + '/_api/' + self.playerIndex() + '/mission', {
                 succeed: self.missionSuccess() === succeed ? null : succeed
-                }).complete(function () {
+            }).complete(function () {
                 gameModel.inProgress(false);
             });
         }

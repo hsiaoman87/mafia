@@ -76,14 +76,18 @@ block content
                 div(data-bind="text: name")
                 <!-- /ko -->
             <!-- /ko -->
+
             h2(data-bind="visible: scores().length") Score
             div(data-bind="foreach: scores")
-                img.icon(data-bind="attr: { src: $data ? '/images/ok.png' : '/images/cancel.png' }")
+                div.icon(data-bind="css: $data ? 'success' : 'fail'")
+
             h2(data-bind="visible: failedNominations().length") Failed Votes
             div(data-bind="foreach: failedNominations")
-                img.icon(data-bind="attr: { src: '/images/cancel.png' }")
+                div.icon.failed-nomination
             
-            h2(data-bind="visible: players().length") Players
+        div.history-window.ui-layout-west
+            h2 Players
+            div(data-bind="visible: players().length === 0") No players
             <!-- ko foreach: players -->
             div
                 span(data-bind="text: name")
@@ -92,51 +96,109 @@ block content
                 span(data-bind="visible: hasVoted") (voted)
                 span(data-bind="visible: hasMissioned") (missioned)
             <!-- /ko -->
-            div(data-bind="visible: debug")
+            div(data-bind="visible: playerRounds().length")
+                h2 History
+                table
+                    thead
+                        tr
+                            th.history-header(style="text-align: left;") Round
+                            <!-- ko foreach: playerRoundHeaders -->
+                            th.history-header(data-bind="text: roundIndex + 1, attr: { colspan: $root.historyOptions.showIterations() ? iterationCount : 1 }")
+                            <!-- /ko -->
+                    tbody(data-bind="foreach: playerRounds")
+                        tr
+                            td(data-bind="text: name")
+                            <!-- ko foreach: history -->
+                            td.history-entry(data-bind="visible: $root.historyOptions.showIterations() || isLastIteration, css: { leader: isLeader, success: isLastIteration && succeeded, fail: isLastIteration && succeeded === false }")
+                                div.vote(data-bind="visible: !$root.historyOptions.showTeamMembersOnly() || iteration.teamMember, css: { approve: ($root.historyOptions.showVotes() === 'all' || $root.historyOptions.showVotes() === 'approved') && iteration.vote(), reject: ($root.historyOptions.showVotes() === 'all' || $root.historyOptions.showVotes() === 'rejected') && iteration.vote() === false, 'team-member': iteration.teamMember }")
+                            <!-- /ko -->
+                h3 Options
+                <!-- ko with: historyOptions -->
+                div.history-option
+                    input#showIterations(type="checkbox", data-bind="checked: showIterations")
+                    label(for="showIterations") Show Failed Nominations
+                div.history-option
+                    span Show Votes:
+                    input#showVotesAll(type="radio", name="showVotes", value="all", data-bind="checked: showVotes")
+                    label(for="showVotesAll") All
+                    input#showVotesApproved(type="radio", name="showVotes", value="approved", data-bind="checked: showVotes")
+                    label(for="showVotesApproved") Approved
+                    input#showVotesRejected(type="radio", name="showVotes", value="rejected", data-bind="checked: showVotes")
+                    label(for="showVotesRejected") Rejected
+                    input#showVotesNone(type="radio", name="showVotes", value="none", data-bind="checked: showVotes")
+                    label(for="showVotesNone") None
+                div.history-option(data-bind="visible: showVotes() !== 'none'")
+                    input#showTeamMembersOnly(type="checkbox", data-bind="checked: showTeamMembersOnly")
+                    label(for="showTeamMembersOnly") Show Only Team Members
+                h3 Legend
+                table
+                    tr
+                        td Mission Leader
+                        td.history-entry.leader
+                    tr
+                        td Mission Success
+                        td.history-entry.success
+                    tr
+                        td Mission Failure
+                        td.history-entry.fail
+                    tr
+                        td Team Member
+                        td.history-entry
+                            div.vote.team-member
+                    tr(data-bind="visible: showVotes() !== 'none'")
+                        td Approved Vote
+                        td.history-entry
+                            div.vote.approve
+                    tr(data-bind="visible: showVotes() !== 'none'")
+                        td Rejected Vote
+                        td.history-entry
+                            div.vote.reject
+                <!-- /ko -->
+        if req.debug
+            div.ui-layout-south
                 <!-- ko with: currentPlayer -->
-                div(data-bind="visible: $parent.debug")
-                    h2 Current Player
-                    table
-                        tr
-                            td Name
-                            td
-                                div(data-bind="text: name")
-                        tr
-                            td Affiliation
-                            td(data-bind="text: affiliationName")
-                        tr
-                            td Init
-                            td
-                                button(data-bind="click: join") Join
-                                button(data-bind="click: leave") Leave
-                                div
-                                    input#isReady(type="checkbox", data-bind="checked: isReady, click: save")
-                                    label(for="isReady") Ready?
-                        tr
-                            td(data-bind="text: 'Nominate ' + $parent.teamSize()")
-                            td
-                                <!-- ko foreach: $parent.players -->
-                                div
-                                    input(type="checkbox", data-bind="checked: isSelected, attr: { id: 'nominate' + $index() }")
-                                    label(data-bind="text: name, attr: { for: 'nominate' + $index() }")
-                                <!-- /ko -->
-                                button(data-bind="click: $parent.nominate") OK
-                        tr
-                            td Vote
-                            td
-                                input#approveVote.toggle-button(type="checkbox", data-bind="checked: voteApproved(), click: vote.bind($data, true)")
-                                label(for="approveVote") Approve
-                                input#rejectVote.toggle-button(type="checkbox", data-bind="checked: voteRejected(), click: vote.bind($data, false)")
-                                label(for="rejectVote") Reject
-                            td(data-bind="text: voteApprove")
-                        tr
-                            td Mission
-                            td
-                                input#succeedMission.toggle-button(type="checkbox", data-bind="checked: missionSucceeded(), click: mission.bind($data, true)")
-                                label(for="succeedMission") Succeed
-                                input#failMission.toggle-button(type="checkbox", data-bind="checked: missionFailed(), click: mission.bind($data, false)")
-                                label(for="failMission") Fail
-                            td(data-bind="text: missionSuccess")
+                h2 Current Player
+                table
+                    tr
+                        td Name
+                        td
+                            div(data-bind="text: name")
+                    tr
+                        td Affiliation
+                        td(data-bind="text: affiliationName")
+                    tr
+                        td Init
+                        td
+                            button(data-bind="click: join") Join
+                            button(data-bind="click: leave") Leave
+                            div
+                                input#isReady(type="checkbox", data-bind="checked: isReady, click: save")
+                                label(for="isReady") Ready?
+                    tr
+                        td(data-bind="text: 'Nominate ' + $parent.teamSize()")
+                        td
+                            <!-- ko foreach: $parent.players -->
+                            div
+                                input(type="checkbox", data-bind="checked: isSelected, attr: { id: 'nominate' + $index() }")
+                                label(data-bind="text: name, attr: { for: 'nominate' + $index() }")
+                            <!-- /ko -->
+                            button(data-bind="click: $parent.nominate") OK
+                    tr
+                        td Vote
+                        td
+                            input#approveVote.toggle-button(type="checkbox", data-bind="checked: voteApproved(), click: vote.bind($data, true)")
+                            label(for="approveVote") Approve
+                            input#rejectVote.toggle-button(type="checkbox", data-bind="checked: voteRejected(), click: vote.bind($data, false)")
+                            label(for="rejectVote") Reject
+                        td(data-bind="text: voteApprove")
+                    tr
+                        td Mission
+                        td
+                            input#succeedMission.toggle-button(type="checkbox", data-bind="checked: missionSucceeded(), click: mission.bind($data, true)")
+                            label(for="succeedMission") Succeed
+                            input#failMission.toggle-button(type="checkbox", data-bind="checked: missionFailed(), click: mission.bind($data, false)")
+                            label(for="failMission") Fail
+                        td(data-bind="text: missionSuccess")
                 <!-- /ko -->
                 h2 Game
                 table
@@ -161,7 +223,7 @@ block content
                     tr
                         td Team Size
                         td(data-bind="text: teamSize")
-                    tr(data-bind="visible: phase() !== 'nominate' || debug")
+                    tr(data-bind="visible: phase() !== 'nominate'")
                         td Candidates
                         td
                             <!-- ko foreach: candidates -->
@@ -205,56 +267,13 @@ block content
                             button(data-bind="click: mission.bind($data, true)") Succeed
                             button(data-bind="click: mission.bind($data, false)") Fail
                     <!-- /ko -->
-                h2 History
-                <!-- ko foreach: rounds -->
-                h3
-                    span(data-bind="text: 'Round ' + ($index() + 1)")
-                table
-                    tr
-                        td Success
-                        td(data-bind="text: result")
-                    tr
-                        td Failed nominations
-                        td(data-bind="text: failedVoteCount")
-                    tr
-                        td Mission failures
-                        td(data-bind="text: failCount")
-                <!-- ko foreach: history -->
-                h4(data-bind="text: 'Team ' + ($index() + 1)")
-                table
-                    tr
-                        td Leader
-                        td(data-bind="text: leader().name")
-                    tr
-                        td Team
-                        td
-                            <!-- ko foreach: teamMembers -->
-                            div(data-bind="text: name")
-                            <!-- /ko -->
-                    tr
-                        td Approve
-                        td(data-bind="text: voteCounts().approveCount")
-                    tr
-                        td Reject
-                        td(data-bind="text: voteCounts().rejectCount")
-                    tr
-                        td Votes
-                        td
-                            <!-- ko foreach: playerIterations -->
-                            div
-                                span(data-bind="text: name")
-                                span : 
-                                span(data-bind="text: voteDecision")
-                            <!-- /ko -->
-                <!-- /ko -->
-                <!-- /ko -->
         
         div.chat-window.ui-layout-east
             <!-- ko foreach: chatMessages -->
             div.chat-message
                 span.chat-user(data-bind="visible: user, text: user() && user().name()")
                 span.chat-text(data-bind="text: message, css: { 'system-message': !user() }")
-                span.timestamp(data-bind="text: timestampDisplay")
+                span.timestamp(data-bind="text: timestampDisplay, attr: { title: timestamp }")
             <!-- /ko -->
             textarea.chat-input(data-bind="value: newMessage, valueUpdate: 'afterkeypress', event: { keypress: onKeyPress }", placeholder="Say something...")
             input#autoScroll(type="checkbox", data-bind="checked: autoScroll")

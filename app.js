@@ -287,11 +287,11 @@ playerSchema.methods.update = function (newPlayer) {
 var gameSchema = new Schema({
     id: String,
     isMultiDevice: Boolean,
-	leaderIndex: Number,
-	currentRound: Number,
-	phase: String,
-	rounds: [{
-		history: [{
+    leaderIndex: Number,
+    currentRound: Number,
+    phase: String,
+    rounds: [{
+        history: [{
             leaderIndex: Number,
             iterations: [{
                 vote: Boolean,
@@ -301,8 +301,8 @@ var gameSchema = new Schema({
         failedVoteCount: Number,
         failCount: Number,
         result: Boolean
-	}],
-	players: [playerSchema]
+    }],
+    players: [playerSchema]
 }, {
     toJSON: {
         transform: function (doc, ret, options) {
@@ -365,7 +365,7 @@ gameSchema.methods.addPlayer = function (player, cb) {
     if (this.phase !== PHASE.Init) {
         cb(new Error('Cannot add player because game has already started'));
     }
-	else {
+    else {
         this.players.push(player);
         this.save(cb);
     }
@@ -382,7 +382,7 @@ gameSchema.methods.removePlayer = function (playerIndex, cb) {
         console.log(playerIndex);
         cb(new Error('Player does not exist'));
     }
-	else {
+    else {
         this.players.splice(playerIndex, 1);
         this.save(cb);
     }
@@ -412,7 +412,7 @@ gameSchema.methods.updatePlayer = function (playerIndex, newPlayer, cb) {
 
 gameSchema.methods.initialize = function () {
     beginMethod('initialize()', arguments);
-	
+    
     var mafiaCount = gameData[this.players.length].mafiaCount;
 
     // assign affiliation
@@ -451,6 +451,27 @@ gameSchema.methods.nominate = function (ids, cb) {
             }
             player.nominee = true;
         }
+
+        var historyEntry = {
+            leaderIndex: this.leaderIndex,
+            iterations: []
+        };
+        for (var i = 0; i < this.players.length; i++) {
+            var player = this.players[i];
+            historyEntry.iterations.push({
+                teamMember: player.nominee
+            });
+        }
+
+        var round = this.rounds[this.currentRound];
+        if (!round) {
+            this.rounds.push({
+                history: [],
+                failedVoteCount: 0
+            });
+            round = this.rounds[this.currentRound];
+        }
+        round.history.push(historyEntry);
         
         this.phase = PHASE.Vote;
         this.save(function(err, game) {
@@ -501,13 +522,11 @@ gameSchema.methods.mission = function (playerIndex, succeed, cb) {
 
 gameSchema.methods._evaluateVote = function (cb) {
     beginMethod('_evaluateVote(cb)', arguments);
-	
-	var yesVotes = [];
-	var noVotes = [];
-	var historyEntry = {
-        leaderIndex: this.leaderIndex,
-        iterations: []
-    };
+    
+    var yesVotes = [];
+    var noVotes = [];
+    var round = this.rounds[this.currentRound];
+    var historyEntry = round.history[round.history.length - 1];
     
     for (var i = 0; i < this.players.length; i++) {
         var player = this.players[i];
@@ -520,50 +539,38 @@ gameSchema.methods._evaluateVote = function (cb) {
         else {
             noVotes.push(i);
         }
-        historyEntry.iterations.push({
-            vote: player.voteApprove,
-            teamMember: player.nominee === true
-        });
     }
     
-	if (yesVotes.length + noVotes.length === this.players.length) {
-		var round = this.rounds[this.currentRound];
-        if (!round) {
-            this.rounds.push({
-                history: [],
-                failedVoteCount: 0
-            });
-            round = this.rounds[this.currentRound];
+    if (yesVotes.length + noVotes.length === this.players.length) {
+        for (var i = 0; i < this.players.length; i++) {
+            historyEntry.iterations[i].vote = this.players[i].voteApprove;
         }
-        
-		round.history.push(historyEntry);
-		
-		if (yesVotes.length > noVotes.length) {
-			console.log('Vote passed ' + yesVotes.length + ' to ' + noVotes.length + '.');
-			this.phase = PHASE.Mission;
-		}
-		else {
+        if (yesVotes.length > noVotes.length) {
+            console.log('Vote passed ' + yesVotes.length + ' to ' + noVotes.length + '.');
+            this.phase = PHASE.Mission;
+        }
+        else {
             round.failedVoteCount++;
-			console.log('Vote failed ' + noVotes.length + ' to ' + yesVotes.length + '. ' + round.failedVoteCount + ' failed votes.');
+            console.log('Vote failed ' + noVotes.length + ' to ' + yesVotes.length + '. ' + round.failedVoteCount + ' failed votes.');
             
-			if (round.failedVoteCount === 5) {
-				this.phase = PHASE.Final;
-				console.log('Game over');
-			}
-			else {
-				this.phase = PHASE.Nominate;
-				this.leaderIndex = ++this.leaderIndex % this.players.length;
-			}
+            if (round.failedVoteCount === 5) {
+                this.phase = PHASE.Final;
+                console.log('Game over');
+            }
+            else {
+                this.phase = PHASE.Nominate;
+                this.leaderIndex = ++this.leaderIndex % this.players.length;
+            }
             
             for (var i = 0; i < this.players.length; i++) {
                 this.players[i].nominee = false;
             }
-		}
-		
-		for (var i = 0; i < this.players.length; i++) {
+        }
+        
+        for (var i = 0; i < this.players.length; i++) {
             this.players[i].voteApprove = undefined;
         }
-	}
+    }
     this.save(function (err, game) {
         cb(err, game);
         if (!err && game.phase !== PHASE.Vote) {
@@ -577,9 +584,9 @@ gameSchema.methods._evaluateVote = function (cb) {
 
 gameSchema.methods._evaluateMission = function (cb) {
     beginMethod('_evaluateMission(cb)', arguments);
-	
-	var yesVotes = 0;
-	var noVotes = 0;
+    
+    var yesVotes = 0;
+    var noVotes = 0;
     
     for (var i = 0; i < this.players.length; i++) {
         var player = this.players[i];
@@ -595,50 +602,50 @@ gameSchema.methods._evaluateMission = function (cb) {
             }
         }
     }
-	
-	if (yesVotes + noVotes === gameData[this.players.length].teamCount[this.currentRound]) {
-		
-		var round = this.rounds[this.currentRound];
-		round.failCount = noVotes;
-		round.result = noVotes < gameData[this.players.length].failuresNeeded[this.currentRound];
-		
-		var successfulMissions = 0;
-		var failedMissions = 0;
-		for (var i = 0; i < this.rounds.length; i++) {
+    
+    if (yesVotes + noVotes === gameData[this.players.length].teamCount[this.currentRound]) {
+        
+        var round = this.rounds[this.currentRound];
+        round.failCount = noVotes;
+        round.result = noVotes < gameData[this.players.length].failuresNeeded[this.currentRound];
+        
+        var successfulMissions = 0;
+        var failedMissions = 0;
+        for (var i = 0; i < this.rounds.length; i++) {
             if (this.rounds[i].result) {
-				successfulMissions++;
-			}
-			else {
-				failedMissions++;
-			}
-		}
-		if (successfulMissions === 3 || failedMissions === 3) {
-			this.phase = PHASE.Final;
-			console.log('Game over.');
-		}
-		else {
-			this.phase = PHASE.Nominate;
-			this.currentRound++;
+                successfulMissions++;
+            }
+            else {
+                failedMissions++;
+            }
+        }
+        if (successfulMissions === 3 || failedMissions === 3) {
+            this.phase = PHASE.Final;
+            console.log('Game over.');
+        }
+        else {
+            this.phase = PHASE.Nominate;
+            this.currentRound++;
             this.leaderIndex = ++this.leaderIndex % this.players.length;
-			
-			if (round.result) {
-				console.log('Mission succeeded!');
-			}
-			else {
-				if (noVotes > 1) {
-					console.log('Mission failed with ' + noVotes + ' saboteurs!');
-				}
-				else {
-					console.log('Mission failed with 1 saboteur!');
-				}
-			}
-		}
-		
+            
+            if (round.result) {
+                console.log('Mission succeeded!');
+            }
+            else {
+                if (noVotes > 1) {
+                    console.log('Mission failed with ' + noVotes + ' saboteurs!');
+                }
+                else {
+                    console.log('Mission failed with 1 saboteur!');
+                }
+            }
+        }
+        
         for (var i = 0; i < this.players.length; i++) {
             this.players[i].nominee = false;
             this.players[i].missionSuccess = undefined;
         }
-	}
+    }
     
     this.save(cb);
 }
@@ -668,7 +675,7 @@ app.param('id', function (req, res, next, id) {
             next();
         }
         else {
-            next(new Error('Game does not exist'));
+            next(new Error('Game does not exist with id: ' + id));
         }
     });
 });
@@ -979,7 +986,7 @@ var PHASE = {
     Nominate: 'nominate',
     Vote: 'vote',
     Mission: 'mission',
-	Final: 'final'
+    Final: 'final'
 }
 
 // Shuffle an array

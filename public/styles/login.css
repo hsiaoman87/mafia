@@ -4,6 +4,9 @@
     margin: 10px;
     padding: 10px;
     border: 1px solid #ccc;
+    cursor: pointer;
+    text-align: center;
+    width: 100px;
 }
 .login:hover
 {
@@ -11,11 +14,26 @@
 }
 .login img
 {
-    height: 64px;
-    width: 64px;
+    border: 0;
+    padding: 10px;
+}
+.login .facebook
+{
+    background-color: #3B5998;
+}
+.login .google
+{
+    background-color: #DA4834;
+}
+.login .guest
+{
+    background-color: gray;
 }
 .login .name
 {
-    display: block;
-    text-align: center;
+    margin-top: 5px;
+}
+.login:hover .name
+{
+    text-decoration: underline;
 }
