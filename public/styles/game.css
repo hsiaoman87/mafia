@@ -155,3 +155,7 @@
 {
     margin: 10px 0;
 }
+.history-option .show-votes
+{
+    display: inline-block;
+}

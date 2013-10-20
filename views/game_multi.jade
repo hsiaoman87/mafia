@@ -118,15 +118,19 @@ block content
                     input#showIterations(type="checkbox", data-bind="checked: showIterations")
                     label(for="showIterations") Show Failed Nominations
                 div.history-option
-                    span Show Votes:
-                    input#showVotesAll(type="radio", name="showVotes", value="all", data-bind="checked: showVotes")
-                    label(for="showVotesAll") All
-                    input#showVotesApproved(type="radio", name="showVotes", value="approved", data-bind="checked: showVotes")
-                    label(for="showVotesApproved") Approved
-                    input#showVotesRejected(type="radio", name="showVotes", value="rejected", data-bind="checked: showVotes")
-                    label(for="showVotesRejected") Rejected
-                    input#showVotesNone(type="radio", name="showVotes", value="none", data-bind="checked: showVotes")
-                    label(for="showVotesNone") None
+                    div.show-votes Show Votes:
+                    div.show-votes
+                        input#showVotesAll(type="radio", name="showVotes", value="all", data-bind="checked: showVotes")
+                        label(for="showVotesAll") All
+                    div.show-votes
+                        input#showVotesApproved(type="radio", name="showVotes", value="approved", data-bind="checked: showVotes")
+                        label(for="showVotesApproved") Approved
+                    div.show-votes
+                        input#showVotesRejected(type="radio", name="showVotes", value="rejected", data-bind="checked: showVotes")
+                        label(for="showVotesRejected") Rejected
+                    div.show-votes
+                        input#showVotesNone(type="radio", name="showVotes", value="none", data-bind="checked: showVotes")
+                        label(for="showVotesNone") None
                 div.history-option(data-bind="visible: showVotes() !== 'none'")
                     input#showTeamMembersOnly(type="checkbox", data-bind="checked: showTeamMembersOnly")
                     label(for="showTeamMembersOnly") Show Only Team Members
