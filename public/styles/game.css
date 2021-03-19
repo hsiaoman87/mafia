@@ -90,6 +90,10 @@
 {
     clear: both;
 }
+.chat-message.highlighted
+{
+    background-color: yellow;
+}
 .chat-text
 {
     padding-right: 2px;

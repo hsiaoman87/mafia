@@ -459,6 +459,16 @@ $(function () {
             
             return display;
         });
+        self.highlightUser = function (highlight) {
+            if (self.user()) {
+                if (highlight) {
+                    $('.chat-message.' + self.user()._id()).addClass('highlighted');
+                }
+                else {
+                    $('.chat-message.' + self.user()._id()).removeClass('highlighted');
+                }
+            }
+        }
     }
     
     function Round(data, game) {

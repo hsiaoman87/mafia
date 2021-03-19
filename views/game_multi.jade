@@ -274,7 +274,7 @@ block content
         
         div.chat-window.ui-layout-east
             <!-- ko foreach: chatMessages -->
-            div.chat-message
+            div.chat-message(data-bind="css: user() && user()._id(), event: { mouseover: highlightUser.bind($data, true), mouseout: highlightUser.bind($data, false) }")
                 span.chat-user(data-bind="visible: user, text: user() && user().name()")
                 span.chat-text(data-bind="text: message, css: { 'system-message': !user() }")
                 span.timestamp(data-bind="text: timestampDisplay, attr: { title: timestamp }")
